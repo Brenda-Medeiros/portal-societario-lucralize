@@ -352,6 +352,18 @@
     .content{padding:1.2rem;}
     .topbar{padding:1rem 1.2rem;}
   }
+
+  /* ---------- Responsivo: telas públicas do link sem login (WhatsApp/celular) ---------- */
+  .detalhe-grid{grid-template-columns:1fr 1fr;}
+  @media (max-width: 780px){
+    .detalhe-grid{grid-template-columns:1fr !important;}
+    .lp-wide-wrap{padding:1rem !important;}
+  }
+  @media (max-width: 480px){
+    .login-wrap{padding:.9rem !important;}
+    .login-wrap > .card{padding:1.3rem 1.1rem !important; max-width:100% !important;}
+    .lp-wide-wrap{padding:.75rem !important;}
+  }
 </style>
 </head>
 <body>
@@ -798,6 +810,14 @@ function todayISO(){
   var dd = String(d.getDate()).padStart(2,'0');
   return d.getFullYear()+'-'+mm+'-'+dd;
 }
+/* Ordena processos pela ordem em que foram solicitados (o mais antigo primeiro):
+   compara primeiro por criadoEm (data da solicitação) e, em caso de empate no
+   mesmo dia, usa o id (que embute o instante exato de criação) como desempate. */
+function compararOrdemSolicitacao(a, b){
+  var c = (a.criadoEm||'').localeCompare(b.criadoEm||'');
+  if(c) return c;
+  return (a.id||'').localeCompare(b.id||'');
+}
 function nowHM(){
   var d = new Date();
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
@@ -910,11 +930,43 @@ async function salvarProcessoNoServidor(processo, ehNovo){
       });
       return true;
     }
+    if(!ehNovo){
+      /* Evita perder atualizações concorrentes: como cada gravação envia o objeto
+         `dados` inteiro (upsert substitui tudo), duas gravações quase simultâneas
+         no mesmo processo (ex.: cliente manda uma observação e, antes da primeira
+         confirmar, manda outra; ou a equipe Lucralize altera o processo enquanto o
+         cliente também está com a tela aberta) faziam a segunda gravação, baseada
+         numa cópia local desatualizada do histórico, apagar silenciosamente a
+         entrada que a outra gravação tinha acabado de salvar no servidor — mesmo a
+         tela de quem enviou por último mostrando "enviado com sucesso". Por isso,
+         antes de gravar, buscamos o histórico mais recente do servidor e mesclamos
+         com o histórico local, mantendo qualquer entrada nova de ambos os lados. */
+      try{
+        var atual = await supa.from('processos').select('dados').eq('id', processo.id).maybeSingle();
+        if(!atual.error && atual.data && atual.data.dados && Array.isArray(atual.data.dados.historico)){
+          var histServidor = atual.data.dados.historico;
+          var histLocal = Array.isArray(processo.historico) ? processo.historico : [];
+          var chaveEntrada = function(h){ return JSON.stringify(h); };
+          var chavesServidor = {};
+          histServidor.forEach(function(h){ chavesServidor[chaveEntrada(h)] = true; });
+          var extrasLocais = histLocal.filter(function(h){ return !chavesServidor[chaveEntrada(h)]; });
+          processo.historico = histServidor.concat(extrasLocais);
+        }
+      }catch(eMerge){
+        console.error('Não foi possível mesclar histórico antes de salvar (seguindo com o histórico local):', eMerge);
+      }
+    }
     await comRetentativa(async function(){
       var res = await supa.from('processos').upsert([processoParaRow(processo)]).select();
       if(res.error) throw res.error;
       if(!res.data || !res.data.length) throw new Error('Nenhum processo salvo (0 linhas afetadas — verifique permissões).');
     });
+    if(!ehNovo && Array.isArray(processo.historico)){
+      /* mantém o objeto local em memória (state.processes) já mesclado, para a
+         tela atual refletir imediatamente qualquer entrada que só existia no
+         servidor até agora. */
+      saveState();
+    }
     return true;
   }catch(e){
     console.error('Erro ao salvar processo no Supabase:', e);
@@ -999,7 +1051,7 @@ function effectiveCompanyForPricing(){
 }
 function companyProcesses(companyId){
   return state.processes.filter(function(p){ return p.empresaId===companyId; })
-    .sort(function(a,b){ return (b.criadoEm||'').localeCompare(a.criadoEm||''); });
+    .sort(compararOrdemSolicitacao);
 }
 function statusLabel(s){
   return {aguardando_pagamento:'Aguardando pagamento', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado pelo cliente'}[s] || s || 'Status desconhecido';
@@ -1309,7 +1361,7 @@ function linkPublicoShellWide(innerHtml, opts){
   opts = opts || {};
   var backBtn = opts.backOnclick ? '<button class="btn btn-ghost btn-sm" style="margin-bottom:1rem;" onclick="'+opts.backOnclick+'">'+(opts.backLabel||'← Voltar')+'</button>' : '';
   return ''+
-  '<div style="min-height:100vh; padding:2rem;">'+
+  '<div class="lp-wide-wrap" style="min-height:100vh; padding:2rem;">'+
     '<div style="max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:1rem;">'+
       '<div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">'+
         '<img class="brand-logo" src="'+LOGO_DATA_URI+'" alt="Lucralize" style="height:30px; width:auto;">'+
@@ -3805,7 +3857,7 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
     '</div>'+
     '</div>'+
 
-  '<div style="display:grid; grid-template-columns:'+gridCols+'; gap:2.4rem; align-items:start;">'+
+  '<div class="detalhe-grid" style="display:grid; grid-template-columns:'+gridCols+'; gap:2.4rem; align-items:start;">'+
     '<div style="display:flex; flex-direction:column; gap:1.2rem;">'+col1Html+'</div>'+
     '<div style="display:flex; flex-direction:column; gap:1.2rem;">'+col2Html+'</div>'+
     (adminMode ? '<div style="display:flex; flex-direction:column; gap:1.2rem;">'+col3Html+'</div>' : '')+
@@ -3947,7 +3999,13 @@ async function executarAvancoEtapa(id, pendenciasTexto){
     p.historico.push({data:todayISO(), hora:nowHM(), texto: s.etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:'lucralize'});
     if(chegouAoFim){
       p.status='concluido';
-      if(!p.documentosFinais.length) p.documentosFinais.push({nome:s.nome+' - Documento Final.pdf'});
+      /* Antes, se a equipe não tivesse anexado o documento final de verdade,
+         o sistema criava aqui um item fictício ("... - Documento Final.pdf")
+         sem nenhum arquivo real por trás — ele aparecia na tela do cliente como
+         se fosse baixável, mas o download sempre falhava, pois não existe path
+         nenhum associado. Removido: agora, sem anexo real, o cliente vê a
+         mensagem "os documentos finais ficarão disponíveis aqui" normalmente,
+         em vez de um link quebrado. */
     }
   }
   saveState();
@@ -4125,7 +4183,7 @@ function renderAdminOverview(){
 
   var listaSection = '';
   if(selecionado){
-    var rows = selecionado.procsDoTipo.slice().sort(function(a,b){return (b.criadoEm||'').localeCompare(a.criadoEm||'');}).map(function(p){
+    var rows = selecionado.procsDoTipo.slice().sort(compararOrdemSolicitacao).map(function(p){
       var s=SERVICE_MAP[p.servicoId];
       var divisaoTxt = divisaoLabelCurto(divisaoForProcesso(p)) || '—';
       return '<tr class="clickable" onclick="PS.go({name:\'admin-processo-detalhe\', id:\''+p.id+'\'})">'+
@@ -4182,7 +4240,7 @@ function processoRowHtml(p){
 }
 function renderAdminProcessosRows(){
   var f = adminProcessosFiltro;
-  var rows = processosVisiveis().slice().sort(function(a,b){return (b.criadoEm||'').localeCompare(a.criadoEm||'');}).filter(function(p){
+  var rows = processosVisiveis().slice().sort(compararOrdemSolicitacao).filter(function(p){
     var nomeBusca = nomeParaProcesso(p);
     if(f.empresa && nomeBusca.toLowerCase().indexOf(f.empresa.toLowerCase())===-1) return false;
     if(f.servico && p.servicoId!==f.servico) return false;
@@ -4245,7 +4303,7 @@ function abrirModalExcluirProcesso(id){
       '<div class="panel-body">'+
         '<p style="color:var(--ink-soft); font-size:.85rem; line-height:1.5;">Você está prestes a excluir permanentemente o processo <strong>'+esc(s.nome)+'</strong> de <strong>'+esc(nomeParaProcesso(p))+'</strong>'+(p.ordemServico?' (OS: '+esc(p.ordemServico)+')':'')+'. Esta ação não pode ser desfeita.</p>'+
         '<div id="excluir-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
-        (p.ordemServico ? ('<label class="radio-option" style="align-items:center;"><input type="checkbox" id="excluir-e-teste" onchange="PS.atualizarModalExcluirTeste()"> <span>Este é um processo de teste — devolver o número <strong class="mono">'+esc(p.ordemServico)+'</strong> para ser reaproveitado em um processo real</span></label>') : '')+
+        '<label class="radio-option" style="align-items:center;"><input type="checkbox" id="excluir-e-teste" onchange="PS.atualizarModalExcluirTeste()"> <span>Este é um processo de teste'+(p.ordemServico ? (' — devolver o número <strong class="mono">'+esc(p.ordemServico)+'</strong> para ser reaproveitado em um processo real') : '')+'</span></label>'+
         '<p id="excluir-teste-nota" style="display:none; font-size:.78rem; color:var(--ink-faint); margin:-.3rem 0 0;">Processos marcados como teste não exigem justificativa e não ficam registrados em Processos excluídos.</p>'+
         '<div class="field"><label id="excluir-justificativa-label">Justificativa da exclusão <span class="req-mark">*</span></label><textarea id="excluir-justificativa" rows="4" placeholder="Explique o motivo da exclusão deste processo"></textarea></div>'+
       '</div>'+
@@ -4449,7 +4507,7 @@ async function confirmarIncluirProcessoManual(){
     criadoEm: dataAbertura, protocolo:'',
     historico:[{data:dataAbertura, hora:nowHM(), texto:'Processo incluído manualmente pela equipe Lucralize a partir de um registro anterior a este portal.'+(arquivo?' Documento original anexado: '+arquivo.nome+'.':''), autor:'lucralize'}],
     documentosAndamento: arquivo ? [arquivo] : [],
-    documentosFinais: (status==='concluido' && s.etapas.length) ? [{nome:s.nome+' - Documento Final.pdf'}] : [],
+    documentosFinais: [], /* sem arquivo real anexado ainda não vira item fictício não-baixável — ver nota em executarAvancoEtapa */
     formularioManual: {arquivo:arquivo||null},
     empresaId: empresaId,
     divisao: empresaObj ? (empresaObj.divisao || null) : null,
