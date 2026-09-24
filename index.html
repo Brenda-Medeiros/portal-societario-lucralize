@@ -1552,8 +1552,8 @@ function renderShell(u){
 function renderClienteProcessos(u){
   var list = companyProcesses(u.empresaId);
   var rows = list.map(function(p){
-    var svc = SERVICE_MAP[p.servicoId];
-    var pct = p.status==='concluido' ? 100 : p.status==='aguardando_pagamento' ? 0 : Math.round(((p.etapaAtual)/svc.etapas.length)*100);
+    var svc = SERVICE_MAP[p.servicoId] || {nome:'Serviço não identificado', etapas:[]};
+    var pct = p.status==='concluido' ? 100 : p.status==='aguardando_pagamento' ? 0 : Math.round(((p.etapaAtual)/(svc.etapas.length||1))*100);
     return '<tr class="clickable" onclick="PS.go({name:\'cliente-processo-detalhe\', id:\''+p.id+'\'})">'+
       '<td><strong>'+esc(svc.nome)+'</strong><div style="font-size:.74rem; color:var(--ink-faint);">Aberto em '+fmtDate(p.criadoEm)+'</div></td>'+
       '<td><span class="pill status-'+p.status+'"><span class="pill-dot"></span>'+statusLabel(p.status)+'</span></td>'+
@@ -3937,7 +3937,7 @@ function renderAdminOverview(){
   var faturamento = procs.reduce(function(sum,p){
     if(p.status!=='concluido' || (dataConclusao(p)||'').slice(0,7)!==adminMesConcluidos) return sum;
     var s=SERVICE_MAP[p.servicoId], c=getCompany(p.empresaId);
-    var price = priceForCompany(s,c);
+    var price = s ? priceForCompany(s,c) : null;
     return sum + (price?price.valor:0);
   },0);
 
@@ -4015,7 +4015,7 @@ function selecionarTipoProcesso(id){ adminTipoFiltro = id; render(); }
 var adminProcessosFiltro = {empresa:'', servico:'', status:'', data:'', divisao:''};
 
 function processoRowHtml(p){
-  var s=SERVICE_MAP[p.servicoId];
+  var s=SERVICE_MAP[p.servicoId] || {nome:'Serviço não identificado'};
   var divisaoTxt = divisaoLabelCurto(divisaoForProcesso(p)) || '—';
   var uAtual = currentUser();
   var podeExcluirIncluir = !uAtual || uAtual.role!=='freelancer';
