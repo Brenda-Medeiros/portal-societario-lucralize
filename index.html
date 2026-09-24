@@ -621,12 +621,32 @@ var STORAGE_BUCKET = 'documentos';
 function sanitizeFileName(nome){
   return String(nome||'arquivo').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9.\-_]+/g,'_').slice(0,140);
 }
+/* Tenta novamente automaticamente (com pequenas pausas) antes de desistir —
+   importante para conexões de internet instáveis (ex.: navegador embutido
+   do WhatsApp em rede móvel), onde uma falha isolada não deve virar erro
+   definitivo para o cliente. */
+async function comRetentativa(fn, tentativas, delayMs){
+  tentativas = tentativas || 3;
+  delayMs = delayMs || 700;
+  var ultimoErro;
+  for(var i=0; i<tentativas; i++){
+    try{
+      return await fn();
+    }catch(e){
+      ultimoErro = e;
+      if(i < tentativas-1) await new Promise(function(r){ setTimeout(r, delayMs*(i+1)); });
+    }
+  }
+  throw ultimoErro;
+}
 async function uploadArquivoReal(file, processoId, subpasta){
   if(!file) return null;
   var path = processoId+'/'+subpasta+'/'+Date.now()+'-'+sanitizeFileName(file.name);
-  var up = await supa.storage.from(STORAGE_BUCKET).upload(path, file, {upsert:false});
-  if(up.error) throw up.error;
-  return {nome:file.name, path:path};
+  return await comRetentativa(async function(){
+    var up = await supa.storage.from(STORAGE_BUCKET).upload(path, file, {upsert:false});
+    if(up.error) throw up.error;
+    return {nome:file.name, path:path};
+  });
 }
 async function baixarArquivoReal(path){
   if(!path){ toast('Arquivo não disponível para download.'); return; }
@@ -791,9 +811,13 @@ async function gerarOrdemServico(){
      como saber os números já usados por outras pessoas — nunca recebam o
      mesmo número de ordem de serviço. */
   try{
-    var res = await supa.rpc('gerar_ordem_servico');
-    if(!res.error && res.data) return res.data;
-    console.error('Erro ao gerar número de ordem de serviço via RPC:', res.error);
+    var data = await comRetentativa(async function(){
+      var res = await supa.rpc('gerar_ordem_servico');
+      if(res.error) throw res.error;
+      if(!res.data) throw new Error('RPC gerar_ordem_servico sem retorno');
+      return res.data;
+    });
+    return data;
   }catch(e){
     console.error('Erro ao gerar número de ordem de serviço via RPC:', e);
   }
@@ -839,8 +863,10 @@ function emailConfirmacaoTemplate(ordemServico){
 }
 async function salvarProcessoNoServidor(processo){
   try{
-    var res = await supa.from('processos').upsert([processoParaRow(processo)]);
-    if(res.error){ console.error('Erro ao salvar processo no Supabase:', res.error); return false; }
+    await comRetentativa(async function(){
+      var res = await supa.from('processos').upsert([processoParaRow(processo)]);
+      if(res.error) throw res.error;
+    });
     return true;
   }catch(e){
     console.error('Erro ao salvar processo no Supabase:', e);
@@ -1721,15 +1747,27 @@ async function enviarSolicitacao(serviceId){
   var submitBtn = document.getElementById('sol-submit-btn');
   if(submitBtn) submitBtn.disabled = true;
 
-  var documentosEnviados = s.documentos.map(function(nome, i){
-    var input = document.getElementById('doc-'+i);
-    var arquivo = (input && input.files && input.files[0]) ? input.files[0].name : null;
-    return {nome:nome, arquivo:arquivo};
-  });
+  var id = 'p'+Date.now();
+
+  var documentosEnviados;
+  try{
+    documentosEnviados = await Promise.all(s.documentos.map(async function(nome, i){
+      var input = document.getElementById('doc-'+i);
+      var file = (input && input.files && input.files[0]) ? input.files[0] : null;
+      if(!file) return {nome:nome, arquivo:null};
+      var doc = await uploadArquivoReal(file, id, 'solicitacao');
+      return {nome:nome, arquivo:doc.nome, path:doc.path};
+    }));
+  }catch(e){
+    console.error('Erro ao enviar documentos da solicitação:', e);
+    toast('Não foi possível enviar os documentos. Verifique sua internet e tente novamente.');
+    if(submitBtn) submitBtn.disabled = false;
+    return;
+  }
+
   var anexados = documentosEnviados.filter(function(d){return d.arquivo;}).length;
   var total = documentosEnviados.length;
 
-  var id = 'p'+Date.now();
   var resumoTexto = 'Solicitação registrada pelo cliente no portal com '+anexados+' de '+total+' documento'+(total===1?'':'s')+' anexado'+(anexados===1?'':'s')+
     (infoAdicional.trim() ? ' e informações adicionais preenchidas.' : '.') + ' Aguardando envio do boleto.';
 
@@ -1767,12 +1805,6 @@ function fabSocioBlockHtml(idx, data){
       '<input type="text" id="fab-s'+idx+'-nome" value="'+esc(data.nome||'')+'" oninput="PS.fabNomeSocioChanged('+idx+')" placeholder="Nome completo"></div>'+
     '<div id="fab-socio-'+idx+'-resto" style="display:'+(data.nome?'flex':'none')+'; flex-direction:column; gap:.9rem;">'+
       '<div class="form-grid">'+
-        '<div class="field"><label>RG <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-rg" value="'+esc(data.rg||'')+'"></div>'+
-        '<div class="field"><label>CPF <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-cpf" value="'+esc(data.cpf||'')+'"></div>'+
-        '<div class="field"><label>Nome da mãe <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-mae" value="'+esc(data.mae||'')+'"></div>'+
-        '<div class="field"><label>Nacionalidade <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-nacionalidade" value="'+esc(data.nacionalidade||'')+'"></div>'+
-        '<div class="field"><label>Naturalidade <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-naturalidade" value="'+esc(data.naturalidade||'')+'" placeholder="Cidade/UF onde nasceu"></div>'+
-        '<div class="field"><label>Data de nascimento <span class="req-mark">*</span></label><input type="date" id="fab-s'+idx+'-nasc" value="'+esc(data.nascimento||'')+'"></div>'+
         '<div class="field"><label>Título de eleitor <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-titulo" value="'+esc(data.titulo||'')+'"></div>'+
         '<div class="field full"><label>Endereço completo <span class="req-mark">*</span></label><input type="text" id="fab-s'+idx+'-endereco" value="'+esc(data.endereco||'')+'" placeholder="Rua, número, bairro, cidade, UF, CEP"></div>'+
         '<div class="field"><label>Estado civil <span class="req-mark">*</span></label><select id="fab-s'+idx+'-civil" onchange="PS.fabToggleEstadoCivil('+idx+')">'+civilOptionsHtml+'</select></div>'+
@@ -1853,12 +1885,6 @@ function fabColetarSocios(){
   while(document.getElementById('fab-s'+i+'-nome')){
     out.push({
       nome: document.getElementById('fab-s'+i+'-nome').value.trim(),
-      rg: (document.getElementById('fab-s'+i+'-rg')||{}).value || '',
-      cpf: (document.getElementById('fab-s'+i+'-cpf')||{}).value || '',
-      mae: (document.getElementById('fab-s'+i+'-mae')||{}).value || '',
-      nacionalidade: (document.getElementById('fab-s'+i+'-nacionalidade')||{}).value || '',
-      naturalidade: (document.getElementById('fab-s'+i+'-naturalidade')||{}).value || '',
-      nascimento: (document.getElementById('fab-s'+i+'-nasc')||{}).value || '',
       titulo: (document.getElementById('fab-s'+i+'-titulo')||{}).value || '',
       endereco: (document.getElementById('fab-s'+i+'-endereco')||{}).value || '',
       estadoCivil: (document.getElementById('fab-s'+i+'-civil')||{}).value || '',
@@ -1885,12 +1911,6 @@ async function fabColetarSociosReal(processoId){
   while(document.getElementById('fab-s'+i+'-nome')){
     out.push({
       nome: document.getElementById('fab-s'+i+'-nome').value.trim(),
-      rg: (document.getElementById('fab-s'+i+'-rg')||{}).value || '',
-      cpf: (document.getElementById('fab-s'+i+'-cpf')||{}).value || '',
-      mae: (document.getElementById('fab-s'+i+'-mae')||{}).value || '',
-      nacionalidade: (document.getElementById('fab-s'+i+'-nacionalidade')||{}).value || '',
-      naturalidade: (document.getElementById('fab-s'+i+'-naturalidade')||{}).value || '',
-      nascimento: (document.getElementById('fab-s'+i+'-nasc')||{}).value || '',
       titulo: (document.getElementById('fab-s'+i+'-titulo')||{}).value || '',
       endereco: (document.getElementById('fab-s'+i+'-endereco')||{}).value || '',
       estadoCivil: (document.getElementById('fab-s'+i+'-civil')||{}).value || '',
@@ -2144,12 +2164,6 @@ function fabValidar(variant){
   var n = fabNumSocios();
   for(var i=1;i<=n;i++){
     req('fab-s'+i+'-nome', 'Nome completo do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-rg', 'RG do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-cpf', 'CPF do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-mae', 'Nome da mãe do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-nacionalidade', 'Nacionalidade do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-naturalidade', 'Naturalidade do sócio '+i+' (pergunta 9)');
-    req('fab-s'+i+'-nasc', 'Data de nascimento do sócio '+i+' (pergunta 9)');
     req('fab-s'+i+'-titulo', 'Título de eleitor do sócio '+i+' (pergunta 9)');
     req('fab-s'+i+'-endereco', 'Endereço completo do sócio '+i+' (pergunta 9)');
     reqFile('fab-s'+i+'-foto', 'Documento de identificação com foto do sócio '+i+' (pergunta 9)');
@@ -2300,12 +2314,6 @@ function renderFormularioAberturaResumo(p){
       '<div class="socio-head">Sócio '+(i+1)+'</div>'+
       '<div class="info-grid">'+
         '<div class="info-block"><span class="lbl">Nome</span><span class="val">'+esc(sc.nome)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">RG</span><span class="val">'+esc(sc.rg)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">CPF</span><span class="val">'+esc(sc.cpf)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Nome da mãe</span><span class="val">'+esc(sc.mae)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Nacionalidade</span><span class="val">'+esc(sc.nacionalidade)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Naturalidade</span><span class="val">'+esc(sc.naturalidade)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Data de nascimento</span><span class="val">'+fmtDate(sc.nascimento)+'</span></div>'+
         '<div class="info-block"><span class="lbl">Título de eleitor</span><span class="val">'+esc(sc.titulo)+'</span></div>'+
         '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Endereço completo</span><span class="val">'+esc(sc.endereco)+'</span></div>'+
         '<div class="info-block"><span class="lbl">Estado civil</span><span class="val">'+esc(sc.estadoCivil)+'</span></div>'+
@@ -2597,12 +2605,6 @@ function altValidar(servicoId){
     var n = altNumSocios();
     for(var i=1;i<=n;i++){
       req('fab-s'+i+'-nome', 'Nome completo do sócio '+i);
-      req('fab-s'+i+'-rg', 'RG do sócio '+i);
-      req('fab-s'+i+'-cpf', 'CPF do sócio '+i);
-      req('fab-s'+i+'-mae', 'Nome da mãe do sócio '+i);
-      req('fab-s'+i+'-nacionalidade', 'Nacionalidade do sócio '+i);
-      req('fab-s'+i+'-naturalidade', 'Naturalidade do sócio '+i);
-      req('fab-s'+i+'-nasc', 'Data de nascimento do sócio '+i);
       req('fab-s'+i+'-titulo', 'Título de eleitor do sócio '+i);
       req('fab-s'+i+'-endereco', 'Endereço completo do sócio '+i);
       reqFile('fab-s'+i+'-foto', 'Documento de identificação com foto do sócio '+i);
@@ -2745,12 +2747,6 @@ function renderFormularioAlteracaoResumo(p){
       '<div class="socio-head">Sócio '+(i+1)+'</div>'+
       '<div class="info-grid">'+
         '<div class="info-block"><span class="lbl">Nome</span><span class="val">'+esc(sc.nome)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">RG</span><span class="val">'+esc(sc.rg)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">CPF</span><span class="val">'+esc(sc.cpf)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Nome da mãe</span><span class="val">'+esc(sc.mae)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Nacionalidade</span><span class="val">'+esc(sc.nacionalidade)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Naturalidade</span><span class="val">'+esc(sc.naturalidade)+'</span></div>'+
-        '<div class="info-block"><span class="lbl">Data de nascimento</span><span class="val">'+fmtDate(sc.nascimento)+'</span></div>'+
         '<div class="info-block"><span class="lbl">Título de eleitor</span><span class="val">'+esc(sc.titulo)+'</span></div>'+
         '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Endereço completo</span><span class="val">'+esc(sc.endereco)+'</span></div>'+
         '<div class="info-block"><span class="lbl">Estado civil</span><span class="val">'+esc(sc.estadoCivil)+'</span></div>'+
