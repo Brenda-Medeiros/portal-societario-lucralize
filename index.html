@@ -617,6 +617,28 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+var STORAGE_BUCKET = 'documentos';
+function sanitizeFileName(nome){
+  return String(nome||'arquivo').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9.\-_]+/g,'_').slice(0,140);
+}
+async function uploadArquivoReal(file, processoId, subpasta){
+  if(!file) return null;
+  var path = processoId+'/'+subpasta+'/'+Date.now()+'-'+sanitizeFileName(file.name);
+  var up = await supa.storage.from(STORAGE_BUCKET).upload(path, file, {upsert:false});
+  if(up.error) throw up.error;
+  return {nome:file.name, path:path};
+}
+async function baixarArquivoReal(path){
+  if(!path){ toast('Arquivo não disponível para download.'); return; }
+  try{
+    var res = await supa.storage.from(STORAGE_BUCKET).createSignedUrl(path, 3600);
+    if(res.error || !res.data){ toast('Não foi possível gerar o link de download.'); return; }
+    window.open(res.data.signedUrl, '_blank');
+  }catch(e){
+    console.error(e);
+    toast('Não foi possível gerar o link de download.');
+  }
+}
 var state = seedState();
 var adminTipoFiltro = null;
 var adminMesConcluidos = todayISO().slice(0,7);
@@ -3333,7 +3355,8 @@ function renderSolicitacaoBlock(p, clientMode){
     var attached = !!d.arquivo;
     var rightSide;
     if(attached){
-      rightSide = '<span style="font-size:.78rem; font-weight:600; color:var(--success); white-space:nowrap;">✓ '+esc(d.arquivo)+'</span>';
+      rightSide = '<span style="font-size:.78rem; font-weight:600; color:var(--success); white-space:nowrap;">✓ '+esc(d.arquivo)+'</span>'+
+        (d.path ? ' <button class="btn btn-subtle btn-sm" onclick="PS.baixarArquivoReal(\''+esc(d.path)+'\')">Baixar</button>' : '');
     } else if(clientMode && p.status!=='concluido'){
       rightSide = '<label class="file-picker" for="pend-'+p.id+'-'+i+'">Anexar agora</label>'+
         '<input type="file" id="pend-'+p.id+'-'+i+'" style="display:none;" onchange="PS.anexarDocPendente(\''+p.id+'\','+i+')">';
@@ -3350,15 +3373,24 @@ function renderSolicitacaoBlock(p, clientMode){
     infoHtml+
   '</div>';
 }
-function anexarDocPendente(processId, idx){
+async function anexarDocPendente(processId, idx){
   var p = state.processes.filter(function(x){return x.id===processId;})[0];
   var input = document.getElementById('pend-'+processId+'-'+idx);
   if(!p || !input || !input.files || !input.files[0]) return;
-  p.solicitacaoDocs[idx].arquivo = input.files[0].name;
-  p.historico.push({data:todayISO(), hora:nowHM(), texto:'Documento "'+p.solicitacaoDocs[idx].nome+'" anexado pelo cliente: '+input.files[0].name+'.', autor:'cliente'});
-  saveState();
-  render();
-  toast('Documento anexado!');
+  var file = input.files[0];
+  toast('Enviando arquivo...');
+  try{
+    var doc = await uploadArquivoReal(file, processId, 'pendentes');
+    p.solicitacaoDocs[idx].arquivo = file.name;
+    p.solicitacaoDocs[idx].path = doc.path;
+    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Documento "'+p.solicitacaoDocs[idx].nome+'" anexado pelo cliente: '+file.name+'.', autor:'cliente'});
+    saveState();
+    render();
+    toast('Documento anexado!');
+  }catch(e){
+    console.error(e);
+    toast('Não foi possível enviar o arquivo. Tente novamente.');
+  }
 }
 
 function renderFormularioManualResumo(p){
@@ -3405,7 +3437,10 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
 
   function fileRows(list){
     return list.length ? list.map(function(d){
-      return '<div class="file-row"><span class="ic">📄</span><span class="name">'+esc(d.nome)+'</span><button class="btn btn-subtle btn-sm" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button></div>';
+      var btn = d.path
+        ? '<button class="btn btn-subtle btn-sm" onclick="PS.baixarArquivoReal(\''+esc(d.path)+'\')">Baixar</button>'
+        : '<button class="btn btn-subtle btn-sm" disabled title="Arquivo original não disponível para download">Baixar</button>';
+      return '<div class="file-row"><span class="ic">📄</span><span class="name">'+esc(d.nome)+'</span>'+btn+'</div>';
     }).join('') : '';
   }
   var docsFinaisHtml = fileRows(p.documentosFinais) || '<p style="font-size:.84rem; color:var(--ink-faint);">Os documentos finais ficarão disponíveis aqui assim que o processo for concluído.</p>';
@@ -3501,10 +3536,10 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
       '<div class="card" style="padding:1.2rem 1.3rem;"><span class="eyebrow">Documentos do andamento do processo</span>'+
       '<span style="font-size:.7rem; color:var(--ink-faint); display:block; margin-top:.15rem;">Uso interno — não fica visível para o cliente.</span>'+
       '<div style="margin-top:.7rem; display:flex; flex-direction:column; gap:.6rem;">'+docsAndamentoHtml+'</div>'+
-      (p.status!=='concluido' ? '<button class="btn btn-ghost btn-sm" style="margin-top:.8rem;" onclick="PS.anexarDocumento(\''+p.id+'\',\'andamento\')">+ Anexar documento de andamento</button>' : '')+
+      (p.status!=='concluido' ? '<label class="btn btn-ghost btn-sm" style="margin-top:.8rem; display:inline-flex;" for="anexo-andamento-'+p.id+'">+ Anexar documento de andamento</label><input type="file" id="anexo-andamento-'+p.id+'" style="display:none;" onchange="PS.anexarDocumento(\''+p.id+'\',\'andamento\')">' : '')+
       '</div>' : '')+
     '<div class="card" style="padding:1.2rem 1.3rem;"><span class="eyebrow">Documentos finais do processo</span><div style="margin-top:.9rem; display:flex; flex-direction:column; gap:.6rem;">'+docsFinaisHtml+'</div>'+
-      (adminMode ? '<button class="btn btn-ghost btn-sm" style="margin-top:.8rem;" onclick="PS.anexarDocumento(\''+p.id+'\',\'finais\')">+ Anexar documento final</button>' : '')+
+      (adminMode ? '<label class="btn btn-ghost btn-sm" style="margin-top:.8rem; display:inline-flex;" for="anexo-finais-'+p.id+'">+ Anexar documento final</label><input type="file" id="anexo-finais-'+p.id+'" style="display:none;" onchange="PS.anexarDocumento(\''+p.id+'\',\'finais\')">' : '')+
     '</div>'+
     (adminMode ? '' : (''+
       '<div class="card" style="padding:1.2rem 1.3rem; display:flex; flex-direction:column; gap:.6rem;">'+
@@ -3729,12 +3764,23 @@ function confirmarReiniciarProcesso(id){
   render();
   toast('Processo reiniciado para: '+label+'.');
 }
-function anexarDocumento(id, categoria){
+async function anexarDocumento(id, categoria){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
+  var input = document.getElementById('anexo-'+categoria+'-'+id);
+  if(!p || !input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
   var campo = categoria==='andamento' ? 'documentosAndamento' : 'documentosFinais';
-  p[campo].push({nome:'Documento anexado em '+fmtDate(todayISO())+'.pdf'});
-  saveState(); render();
-  toast('Documento '+(categoria==='andamento'?'de andamento':'final')+' anexado. (Envio de arquivo real ainda não disponível nesta versão — em breve.)');
+  var subpasta = categoria==='andamento' ? 'andamento' : 'finais';
+  toast('Enviando arquivo...');
+  try{
+    var doc = await uploadArquivoReal(file, id, subpasta);
+    p[campo].push(doc);
+    saveState(); render();
+    toast('Documento '+(categoria==='andamento'?'de andamento':'final')+' anexado.');
+  }catch(e){
+    console.error(e);
+    toast('Não foi possível enviar o arquivo. Tente novamente.');
+  }
 }
 
 /* ---------- ADMIN: visão geral ---------- */
@@ -4224,7 +4270,7 @@ window.PS = {
   trocarSenhaReenviarLink: trocarSenhaReenviarLink, trocarSenhaVoltarLogin: trocarSenhaVoltarLogin,
   selecionarTipoProcesso: selecionarTipoProcesso, mudarMesConcluidos: mudarMesConcluidos,
   openSolicitarForm: openSolicitarForm, onDocFileChosen: onDocFileChosen, enviarSolicitacao: enviarSolicitacao,
-  avancarEtapa: avancarEtapa, anexarDocumento: anexarDocumento, anexarDocPendente: anexarDocPendente,
+  avancarEtapa: avancarEtapa, anexarDocumento: anexarDocumento, anexarDocPendente: anexarDocPendente, baixarArquivoReal: baixarArquivoReal,
   openNovoUsuario: openNovoUsuario, criarUsuario: criarUsuario, nuToggleTipoAcesso: nuToggleTipoAcesso, toast: toast,
   salvarProtocolo: salvarProtocolo, filtrarProcessosLive: filtrarProcessosLive, limparFiltrosProcessos: limparFiltrosProcessos,
   fabAtualizarSocios: fabAtualizarSocios, fabRegenerarSocios: fabRegenerarSocios, fabNomeSocioChanged: fabNomeSocioChanged,
