@@ -825,7 +825,17 @@ function emailConfirmacaoTemplate(ordemServico){
     '<p>Agradecemos pela confiança e seguimos acompanhando seu processo!</p>';
   return {assunto:assunto, corpoHtml:corpoHtml};
 }
-function finalizarNovoProcesso(processo, toastLogado){
+async function salvarProcessoNoServidor(processo){
+  try{
+    var res = await supa.from('processos').upsert([processoParaRow(processo)]);
+    if(res.error){ console.error('Erro ao salvar processo no Supabase:', res.error); return false; }
+    return true;
+  }catch(e){
+    console.error('Erro ao salvar processo no Supabase:', e);
+    return false;
+  }
+}
+async function finalizarNovoProcesso(processo, toastLogado){
   var u = currentUser();
   processo.ordemServico = gerarOrdemServico();
   if(u){
@@ -841,16 +851,18 @@ function finalizarNovoProcesso(processo, toastLogado){
     processo.visitante = state.visitante ? {nome:state.visitante.nome, telefone:state.visitante.telefone, email:state.visitante.email} : null;
     processo.divisao = state.visitanteDivisao || null;
     processo.solicitanteContato = processo.visitante ? {telefone: processo.visitante.telefone||'', email: processo.visitante.email||''} : null;
-    if(processo.visitante && processo.visitante.email){
-      var emailTpl = emailConfirmacaoTemplate(processo.ordemServico);
-      processo.emailConfirmacaoSimulado = {
-        para: processo.visitante.email,
-        assunto: emailTpl.assunto,
-        corpoHtml: emailTpl.corpoHtml,
-        enviadoEm: todayISO()+' '+nowHM()
-      };
-    }
   }
+
+  /* salva de verdade no servidor ANTES de mostrar qualquer tela de sucesso —
+     se a gravação falhar (sem internet, erro do Supabase, etc.), o cliente
+     precisa ver isso e poder tentar de novo, em vez de receber uma
+     confirmação falsa enquanto nada foi realmente registrado. */
+  var salvoComSucesso = await salvarProcessoNoServidor(processo);
+  if(!salvoComSucesso){
+    toast('Não foi possível enviar sua solicitação. Verifique sua internet e tente novamente.');
+    return false;
+  }
+
   state.processes.push(processo);
   saveState();
   closePanel();
@@ -860,6 +872,7 @@ function finalizarNovoProcesso(processo, toastLogado){
   } else {
     go({name:'link-publico', etapa:'confirmacao', ordemServico:processo.ordemServico});
   }
+  return true;
 }
 function esc(str){
   return String(str==null?'':str).replace(/[&<>"']/g, function(c){
@@ -1403,16 +1416,6 @@ function renderLinkPublicoProcesso(id){
 function renderLinkPublicoConfirmacao(ordemServico){
   var p = state.processes.filter(function(x){ return x.ordemServico===ordemServico; })[0];
   var continuarOnclick = p ? ("PS.go({name:'link-publico', etapa:'processo', id:'"+p.id+"'})") : "PS.go({name:'link-publico', etapa:'acompanhar'})";
-  var email = p && p.emailConfirmacaoSimulado;
-  var emailCardHtml = email ? (''+
-    '<div class="card" style="padding:1rem 1.2rem; text-align:left; margin-top:.3rem;">'+
-      '<span class="eyebrow">'+seal(14)+' E-mail de confirmação (simulado — protótipo)</span>'+
-      '<p style="font-size:.8rem; color:var(--ink-faint); margin-top:.4rem;">Em produção, este e-mail será enviado automaticamente. Abaixo, uma prévia do que seria enviado para <strong>'+esc(email.para)+'</strong>:</p>'+
-      '<div style="border:1px solid var(--border); border-radius:10px; padding:.8rem 1rem; margin-top:.6rem; background:var(--bg-soft, transparent);">'+
-        '<p style="font-size:.82rem; margin:0 0 .5rem 0;"><strong>Assunto:</strong> '+esc(email.assunto)+'</p>'+
-        '<div style="font-size:.84rem; line-height:1.6;">'+email.corpoHtml+'</div>'+
-      '</div>'+
-    '</div>') : '';
   return linkPublicoShell(''+
     '<div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:.7rem; padding:.4rem 0;">'+
       '<div style="font-size:2.1rem;">✅</div>'+
@@ -1420,7 +1423,6 @@ function renderLinkPublicoConfirmacao(ordemServico){
       '<p style="color:var(--ink-soft); font-size:.88rem; line-height:1.55;">Guarde o número da sua ordem de serviço — é através dele que você poderá acompanhar o andamento do processo, sem precisar de usuário e senha.</p>'+
       '<div class="card mono" style="padding:.85rem 1.3rem; font-size:1.25rem; font-weight:700; color:var(--primary); letter-spacing:.03em; border:1px solid var(--border);">'+esc(ordemServico||'')+'</div>'+
     '</div>'+
-    emailCardHtml+
     '<button class="btn btn-primary btn-block" onclick="'+continuarOnclick+'">Acompanhar este processo agora</button>'+
     '<button class="btn btn-ghost btn-block" onclick="PS.linkPublicoSair()">Voltar para o início</button>'
   , {});
@@ -1683,7 +1685,7 @@ function openSolicitarForm(serviceId){
       '</div>'+
       '<div class="panel-foot">'+
         '<button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button>'+
-        '<button class="btn btn-primary" onclick="PS.enviarSolicitacao(\''+s.id+'\')">Enviar solicitação</button>'+
+        '<button class="btn btn-primary" id="sol-submit-btn" onclick="PS.enviarSolicitacao(\''+s.id+'\')">Enviar solicitação</button>'+
       '</div>'+
     '</div>'+
   '</div>';
@@ -1701,9 +1703,11 @@ function onDocFileChosen(i){
     row.classList.remove('attached');
   }
 }
-function enviarSolicitacao(serviceId){
+async function enviarSolicitacao(serviceId){
   var s = SERVICE_MAP[serviceId];
   var infoAdicional = (document.getElementById('sol-info')||{}).value || '';
+  var submitBtn = document.getElementById('sol-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
 
   var documentosEnviados = s.documentos.map(function(nome, i){
     var input = document.getElementById('doc-'+i);
@@ -1721,7 +1725,7 @@ function enviarSolicitacao(serviceId){
     ? ('Solicitação enviada! '+(total-anexados)+' documento(s) ainda pendente(s) — você pode enviá-los depois.')
     : 'Solicitação enviada com todos os documentos! Você receberá o boleto em breve.';
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:serviceId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:resumoTexto, autor:'cliente'}],
@@ -1729,6 +1733,7 @@ function enviarSolicitacao(serviceId){
     solicitacaoInfo: infoAdicional,
     solicitacaoDocs: documentosEnviados
   }, toastMsg);
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 /* ---------- Formulário dedicado: solicitação de Abertura de CNPJ ---------- */
@@ -2246,13 +2251,14 @@ async function enviarSolicitacaoAbertura(variant){
     dados.cnpjAtual = document.getElementById('fab-transf-cnpj').value.trim();
   }
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:(isTransf?'Formulário de transformação de MEI para ME':'Formulário de abertura de CNPJ')+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioAbertura: dados
   });
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 function renderFormularioAberturaResumo(p){
@@ -2694,13 +2700,14 @@ async function enviarSolicitacaoAlteracao(servicoId){
     return;
   }
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:'Formulário de '+s.nome+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioAlteracao: dados
   });
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 function renderFormularioAlteracaoResumo(p){
@@ -3017,13 +3024,14 @@ async function enviarSolicitacaoBaixa(){
     return;
   }
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:'baixa-cnpj', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:'Formulário de '+s.nome+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioBaixa: dados
   });
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 function renderFormularioBaixaResumo(p){
@@ -3223,13 +3231,14 @@ async function enviarSolicitacaoAlvara(){
     return;
   }
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:'alvara-funcionamento', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:'Formulário de '+s.nome+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioAlvara: dados
   });
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 function renderFormularioAlvaraResumo(p){
@@ -3419,13 +3428,14 @@ async function enviarSolicitacaoRepresentante(){
     return;
   }
 
-  finalizarNovoProcesso({
+  var ok = await finalizarNovoProcesso({
     id:id, servicoId:'alteracao-dbe', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
     historico:[{data:todayISO(), hora:nowHM(), texto:'Formulário de '+s.nome+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioRepresentante: dados
   });
+  if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
 function renderFormularioRepresentanteResumo(p){
@@ -4231,6 +4241,11 @@ async function confirmarIncluirProcessoManual(){
     ordemServico: gerarOrdemServico()
   };
 
+  var salvo = await salvarProcessoNoServidor(processo);
+  if(!salvo){
+    toast('Não foi possível salvar o processo. Verifique sua internet e tente novamente.');
+    return;
+  }
   state.processes.push(processo);
   saveState();
   closePanel();
