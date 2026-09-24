@@ -861,11 +861,32 @@ function emailConfirmacaoTemplate(ordemServico){
     '<p>Agradecemos pela confiança e seguimos acompanhando seu processo!</p>';
   return {assunto:assunto, corpoHtml:corpoHtml};
 }
-async function salvarProcessoNoServidor(processo){
+async function salvarProcessoNoServidor(processo, ehNovo){
+  /* ehNovo=true: criação de processo (finalizarNovoProcesso) — sempre grava
+     direto na tabela por id, inclusive para visitante sem login (a política de
+     RLS libera INSERT anônimo quando empresa_id é nulo).
+     ehNovo falso/omitido: atualização de um processo JÁ existente. Se não há
+     sessão autenticada (visitante do link público), a gravação direta por id
+     seria bloqueada pela RLS (não existe política de UPDATE para o papel
+     anônimo) — nesse caso usamos a RPC atualizar_processo_por_os, que localiza
+     o processo exatamente pelo número da OS (a própria credencial pública).
+     Em ambos os casos, checamos se alguma linha voltou no resultado: um
+     upsert/RPC que a RLS filtra silenciosamente "funciona" sem erro, mas não
+     grava nada — por isso 0 linhas retornadas também conta como falha. */
   try{
+    if(!ehNovo && !state.session){
+      if(!processo.ordemServico) throw new Error('Processo sem número de ordem de serviço.');
+      await comRetentativa(async function(){
+        var res = await supa.rpc('atualizar_processo_por_os', {os_numero: processo.ordemServico, novo_dados: processo});
+        if(res.error) throw res.error;
+        if(!res.data || !res.data.length) throw new Error('Nenhum processo atualizado (RPC atualizar_processo_por_os retornou vazio).');
+      });
+      return true;
+    }
     await comRetentativa(async function(){
-      var res = await supa.from('processos').upsert([processoParaRow(processo)]);
+      var res = await supa.from('processos').upsert([processoParaRow(processo)]).select();
       if(res.error) throw res.error;
+      if(!res.data || !res.data.length) throw new Error('Nenhum processo salvo (0 linhas afetadas — verifique permissões).');
     });
     return true;
   }catch(e){
@@ -895,7 +916,7 @@ async function finalizarNovoProcesso(processo, toastLogado){
      se a gravação falhar (sem internet, erro do Supabase, etc.), o cliente
      precisa ver isso e poder tentar de novo, em vez de receber uma
      confirmação falsa enquanto nada foi realmente registrado. */
-  var salvoComSucesso = await salvarProcessoNoServidor(processo);
+  var salvoComSucesso = await salvarProcessoNoServidor(processo, true);
   if(!salvoComSucesso){
     toast('Não foi possível enviar sua solicitação. Verifique sua internet e tente novamente.');
     return false;
@@ -3654,7 +3675,7 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
         (bloqueiaConfirmarPagamento ? '<div class="pill status-aguardando_pagamento" style="align-self:flex-start;">Aguardando confirmação de pagamento pelo administrador</div>' :
         (nextLabel ? '<button class="btn btn-primary btn-block" onclick="PS.avancarEtapa(\''+p.id+'\')">'+nextLabel+'</button>' : '<div class="pill status-concluido" style="align-self:flex-start;">Processo concluído</div>')))+
       '<button class="btn btn-ghost btn-block" onclick="PS.abrirModalReiniciar(\''+p.id+'\')">↺ Reiniciar processo</button>'+
-      (p.formularioManual && !ehFreelancer ? '<button class="btn btn-danger btn-block" onclick="PS.abrirModalExcluirProcesso(\''+p.id+'\')">🗑 Excluir processo</button>' : '')+
+      (!ehFreelancer ? '<button class="btn btn-danger btn-block" onclick="PS.abrirModalExcluirProcesso(\''+p.id+'\')">🗑 Excluir processo</button>' : '')+
     '</div>';
   }
 
@@ -4122,7 +4143,7 @@ function processoRowHtml(p){
   var divisaoTxt = divisaoLabelCurto(divisaoForProcesso(p)) || '—';
   var uAtual = currentUser();
   var podeExcluirIncluir = !uAtual || uAtual.role!=='freelancer';
-  var excluirBtn = (p.formularioManual && podeExcluirIncluir) ? ('<button class="btn btn-danger btn-sm" style="margin-left:.4rem;" onclick="event.stopPropagation(); PS.abrirModalExcluirProcesso(\''+p.id+'\')">Excluir</button>') : '';
+  var excluirBtn = podeExcluirIncluir ? ('<button class="btn btn-danger btn-sm" style="margin-left:.4rem;" onclick="event.stopPropagation(); PS.abrirModalExcluirProcesso(\''+p.id+'\')">Excluir</button>') : '';
   return '<tr class="clickable" onclick="PS.go({name:\'admin-processo-detalhe\', id:\''+p.id+'\'})">'+
     '<td><strong>'+esc(nomeParaProcesso(p))+'</strong><div style="font-size:.72rem; color:var(--ink-faint);" class="mono">'+esc(docParaProcesso(p))+'</div></td>'+
     '<td>'+esc(s.nome)+'</td>'+
@@ -4193,24 +4214,61 @@ function abrirModalExcluirProcesso(id){
   var html = ''+
   '<div class="overlay modal-center" id="modal-root" onclick="if(event.target===this) PS.closePanel()">'+
     '<div class="modal-box">'+
-      '<div class="panel-head"><h3 style="font-size:1.05rem;">Excluir processo incluído manualmente</h3><button class="close-x" onclick="PS.closePanel()">✕</button></div>'+
+      '<div class="panel-head"><h3 style="font-size:1.05rem;">Excluir processo</h3><button class="close-x" onclick="PS.closePanel()">✕</button></div>'+
       '<div class="panel-body">'+
         '<p style="color:var(--ink-soft); font-size:.85rem; line-height:1.5;">Você está prestes a excluir permanentemente o processo <strong>'+esc(s.nome)+'</strong> de <strong>'+esc(nomeParaProcesso(p))+'</strong>'+(p.ordemServico?' (OS: '+esc(p.ordemServico)+')':'')+'. Esta ação não pode ser desfeita — o registro ficará apenas no histórico de processos excluídos.</p>'+
         '<div id="excluir-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
         '<div class="field"><label>Justificativa da exclusão <span class="req-mark">*</span></label><textarea id="excluir-justificativa" rows="4" placeholder="Explique o motivo da exclusão deste processo"></textarea></div>'+
+        (p.ordemServico ? ('<label class="radio-option" style="align-items:center;"><input type="checkbox" id="excluir-e-teste"> <span>Este é um processo de teste — devolver o número <strong class="mono">'+esc(p.ordemServico)+'</strong> para ser reaproveitado em um processo real</span></label>') : '')+
       '</div>'+
-      '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-danger" onclick="PS.confirmarExcluirProcesso(\''+id+'\')">Excluir processo</button></div>'+
+      '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-danger" id="excluir-confirmar-btn" onclick="PS.confirmarExcluirProcesso(\''+id+'\')">Excluir processo</button></div>'+
     '</div>'+
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
-function confirmarExcluirProcesso(id){
+async function excluirProcessoNoServidor(id){
+  try{
+    await comRetentativa(async function(){
+      var res = await supa.from('processos').delete().eq('id', id).select();
+      if(res.error) throw res.error;
+      if(!res.data || !res.data.length) throw new Error('Nenhum processo excluído (0 linhas afetadas — verifique permissões).');
+    });
+    return true;
+  }catch(e){
+    console.error('Erro ao excluir processo no Supabase:', e);
+    return false;
+  }
+}
+async function liberarNumeroOS(osNumero){
+  try{
+    await comRetentativa(async function(){
+      var res = await supa.rpc('liberar_numero_os', {os_numero: osNumero});
+      if(res.error) throw res.error;
+    });
+    return true;
+  }catch(e){
+    console.error('Erro ao liberar número de OS para reuso:', e);
+    return false;
+  }
+}
+async function confirmarExcluirProcesso(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return;
   var textarea = document.getElementById('excluir-justificativa');
   var justificativa = textarea ? textarea.value.trim() : '';
   var errBox = document.getElementById('excluir-erro');
   if(!justificativa){ if(errBox){ errBox.textContent='Descreva a justificativa da exclusão antes de continuar.'; errBox.style.display='block'; } return; }
+  var ehTeste = !!(document.getElementById('excluir-e-teste') && document.getElementById('excluir-e-teste').checked);
+  var btn = document.getElementById('excluir-confirmar-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Excluindo…'; }
+
+  var ok = await excluirProcessoNoServidor(id);
+  if(!ok){
+    if(btn){ btn.disabled = false; btn.textContent = 'Excluir processo'; }
+    if(errBox){ errBox.textContent='Não foi possível excluir o processo agora. Verifique sua internet e tente novamente.'; errBox.style.display='block'; }
+    return;
+  }
+
   var autor = currentUser();
   var s = SERVICE_MAP[p.servicoId];
   if(!state.processosExcluidos) state.processosExcluidos = [];
@@ -4225,11 +4283,18 @@ function confirmarExcluirProcesso(id){
     hora:nowHM()
   });
   state.processes = state.processes.filter(function(x){return x.id!==id;});
-  supa.from('processos').delete().eq('id', id).then(function(r){ if(r.error) console.warn('Excluir processo no banco:', r.error.message); });
   saveState();
   closePanel();
   go({name:'admin-processos'});
-  toast('Processo excluído — motivo e responsável registrados em Processos excluídos.');
+
+  if(ehTeste && p.ordemServico){
+    var liberou = await liberarNumeroOS(p.ordemServico);
+    toast(liberou
+      ? ('Processo excluído — o número '+p.ordemServico+' já está disponível para reuso.')
+      : 'Processo excluído, mas não foi possível liberar o número da OS para reuso agora.');
+  } else {
+    toast('Processo excluído — motivo e responsável registrados em Processos excluídos.');
+  }
 }
 function renderAdminExcluidos(){
   var lista = (state.processosExcluidos||[]).slice().reverse();
