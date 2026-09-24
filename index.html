@@ -785,7 +785,19 @@ function nowHM(){
 function autorLabel(autor){
   return autor==='cliente' ? 'Cliente' : 'Lucralize';
 }
-function gerarOrdemServico(){
+async function gerarOrdemServico(){
+  /* número gerado de forma atômica no banco (sequence do Postgres), para que
+     dois pedidos simultâneos — inclusive de visitantes sem login, que não têm
+     como saber os números já usados por outras pessoas — nunca recebam o
+     mesmo número de ordem de serviço. */
+  try{
+    var res = await supa.rpc('gerar_ordem_servico');
+    if(!res.error && res.data) return res.data;
+    console.error('Erro ao gerar número de ordem de serviço via RPC:', res.error);
+  }catch(e){
+    console.error('Erro ao gerar número de ordem de serviço via RPC:', e);
+  }
+  /* fallback (só ocorre se a chamada ao banco falhar, ex.: sem internet) */
   var n = state.nextOrdemSeq++;
   var ano = new Date().getFullYear();
   return 'OS-'+String(n).padStart(3,'0')+'/'+ano;
@@ -837,7 +849,7 @@ async function salvarProcessoNoServidor(processo){
 }
 async function finalizarNovoProcesso(processo, toastLogado){
   var u = currentUser();
-  processo.ordemServico = gerarOrdemServico();
+  processo.ordemServico = await gerarOrdemServico();
   if(u){
     processo.empresaId = u.empresaId;
     var empresa = getCompany(u.empresaId);
@@ -3922,12 +3934,12 @@ function renderAdminOverview(){
   var procs = processosVisiveis();
   var mesAtual = todayISO().slice(0,7);
   var podeAvancarMes = adminMesConcluidos < mesAtual;
-  var abertosNoMes = procs.filter(function(p){ return p.criadoEm.slice(0,7)===adminMesConcluidos; });
+  var abertosNoMes = procs.filter(function(p){ return (p.criadoEm||'').slice(0,7)===adminMesConcluidos; });
   var ativos = abertosNoMes.filter(function(p){return p.status!=='concluido';}).length;
   var aguardando = abertosNoMes.filter(function(p){return p.status==='aguardando_pagamento';}).length;
-  var concluidosMes = procs.filter(function(p){return p.status==='concluido' && dataConclusao(p).slice(0,7)===adminMesConcluidos;}).length;
+  var concluidosMes = procs.filter(function(p){return p.status==='concluido' && (dataConclusao(p)||'').slice(0,7)===adminMesConcluidos;}).length;
   var faturamento = procs.reduce(function(sum,p){
-    if(p.status!=='concluido' || dataConclusao(p).slice(0,7)!==adminMesConcluidos) return sum;
+    if(p.status!=='concluido' || (dataConclusao(p)||'').slice(0,7)!==adminMesConcluidos) return sum;
     var s=SERVICE_MAP[p.servicoId], c=getCompany(p.empresaId);
     var price = priceForCompany(s,c);
     return sum + (price?price.valor:0);
@@ -4238,7 +4250,7 @@ async function confirmarIncluirProcessoManual(){
     formularioManual: {arquivo:arquivo||null},
     empresaId: empresaId,
     divisao: empresaObj ? (empresaObj.divisao || null) : null,
-    ordemServico: gerarOrdemServico()
+    ordemServico: await gerarOrdemServico()
   };
 
   var salvo = await salvarProcessoNoServidor(processo);
