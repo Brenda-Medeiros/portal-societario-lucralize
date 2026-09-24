@@ -3554,6 +3554,7 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return '<div class="empty-state">Processo não encontrado.</div>';
   var s = SERVICE_MAP[p.servicoId];
+  if(!s) return '<div class="empty-state">Este processo referencia um serviço não identificado ('+esc(p.servicoId||'—')+'). Entre em contato com o suporte técnico da Lucralize para corrigir este registro.</div>';
   var company = getCompany(p.empresaId);
   var steps = stepStates(p, s);
 
