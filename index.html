@@ -975,7 +975,7 @@ function companyProcesses(companyId){
     .sort(function(a,b){ return (b.criadoEm||'').localeCompare(a.criadoEm||''); });
 }
 function statusLabel(s){
-  return {aguardando_pagamento:'Aguardando pagamento', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado pelo cliente'}[s] || s;
+  return {aguardando_pagamento:'Aguardando pagamento', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado pelo cliente'}[s] || s || 'Status desconhecido';
 }
 function divisaoLabel(d){
   return {tech:'Lucralize Tech', contabilidade:'Lucralize Contabilidade'}[d] || null;
@@ -1529,8 +1529,8 @@ function renderShell(u){
       {k:'admin-processos', ic:'≣', label:'Processos'},
       {k:'admin-catalogo', ic:'▤', label:'Catálogo de serviços'}
     ];
-    if(u.role==='admin') items.push({k:'admin-usuarios', ic:'◎', label:'Usuários'});
     items.push({k:'admin-excluidos', ic:'🗑', label:'Processos excluídos'});
+    if(u.role==='admin') items.push({k:'admin-usuarios', ic:'◎', label:'Usuários'});
   } else {
     items = [
       {k:'cliente-processos', ic:'≣', label:'Meus processos'},
@@ -4210,16 +4210,17 @@ function abrirModalExcluirProcesso(id){
   if(uAtual && uAtual.role==='freelancer') return;
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return;
-  var s = SERVICE_MAP[p.servicoId];
+  var s = SERVICE_MAP[p.servicoId] || {nome:'Serviço não identificado'};
   var html = ''+
   '<div class="overlay modal-center" id="modal-root" onclick="if(event.target===this) PS.closePanel()">'+
     '<div class="modal-box">'+
       '<div class="panel-head"><h3 style="font-size:1.05rem;">Excluir processo</h3><button class="close-x" onclick="PS.closePanel()">✕</button></div>'+
       '<div class="panel-body">'+
-        '<p style="color:var(--ink-soft); font-size:.85rem; line-height:1.5;">Você está prestes a excluir permanentemente o processo <strong>'+esc(s.nome)+'</strong> de <strong>'+esc(nomeParaProcesso(p))+'</strong>'+(p.ordemServico?' (OS: '+esc(p.ordemServico)+')':'')+'. Esta ação não pode ser desfeita — o registro ficará apenas no histórico de processos excluídos.</p>'+
+        '<p style="color:var(--ink-soft); font-size:.85rem; line-height:1.5;">Você está prestes a excluir permanentemente o processo <strong>'+esc(s.nome)+'</strong> de <strong>'+esc(nomeParaProcesso(p))+'</strong>'+(p.ordemServico?' (OS: '+esc(p.ordemServico)+')':'')+'. Esta ação não pode ser desfeita.</p>'+
         '<div id="excluir-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
-        '<div class="field"><label>Justificativa da exclusão <span class="req-mark">*</span></label><textarea id="excluir-justificativa" rows="4" placeholder="Explique o motivo da exclusão deste processo"></textarea></div>'+
-        (p.ordemServico ? ('<label class="radio-option" style="align-items:center;"><input type="checkbox" id="excluir-e-teste"> <span>Este é um processo de teste — devolver o número <strong class="mono">'+esc(p.ordemServico)+'</strong> para ser reaproveitado em um processo real</span></label>') : '')+
+        (p.ordemServico ? ('<label class="radio-option" style="align-items:center;"><input type="checkbox" id="excluir-e-teste" onchange="PS.atualizarModalExcluirTeste()"> <span>Este é um processo de teste — devolver o número <strong class="mono">'+esc(p.ordemServico)+'</strong> para ser reaproveitado em um processo real</span></label>') : '')+
+        '<p id="excluir-teste-nota" style="display:none; font-size:.78rem; color:var(--ink-faint); margin:-.3rem 0 0;">Processos marcados como teste não exigem justificativa e não ficam registrados em Processos excluídos.</p>'+
+        '<div class="field"><label id="excluir-justificativa-label">Justificativa da exclusão <span class="req-mark">*</span></label><textarea id="excluir-justificativa" rows="4" placeholder="Explique o motivo da exclusão deste processo"></textarea></div>'+
       '</div>'+
       '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-danger" id="excluir-confirmar-btn" onclick="PS.confirmarExcluirProcesso(\''+id+'\')">Excluir processo</button></div>'+
     '</div>'+
@@ -4251,14 +4252,21 @@ async function liberarNumeroOS(osNumero){
     return false;
   }
 }
+function atualizarModalExcluirTeste(){
+  var ehTeste = !!(document.getElementById('excluir-e-teste') && document.getElementById('excluir-e-teste').checked);
+  var nota = document.getElementById('excluir-teste-nota');
+  var label = document.getElementById('excluir-justificativa-label');
+  if(nota) nota.style.display = ehTeste ? 'block' : 'none';
+  if(label) label.innerHTML = ehTeste ? 'Justificativa da exclusão (opcional)' : 'Justificativa da exclusão <span class="req-mark">*</span>';
+}
 async function confirmarExcluirProcesso(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return;
   var textarea = document.getElementById('excluir-justificativa');
   var justificativa = textarea ? textarea.value.trim() : '';
   var errBox = document.getElementById('excluir-erro');
-  if(!justificativa){ if(errBox){ errBox.textContent='Descreva a justificativa da exclusão antes de continuar.'; errBox.style.display='block'; } return; }
   var ehTeste = !!(document.getElementById('excluir-e-teste') && document.getElementById('excluir-e-teste').checked);
+  if(!ehTeste && !justificativa){ if(errBox){ errBox.textContent='Descreva a justificativa da exclusão antes de continuar.'; errBox.style.display='block'; } return; }
   var btn = document.getElementById('excluir-confirmar-btn');
   if(btn){ btn.disabled = true; btn.textContent = 'Excluindo…'; }
 
@@ -4269,19 +4277,21 @@ async function confirmarExcluirProcesso(id){
     return;
   }
 
-  var autor = currentUser();
-  var s = SERVICE_MAP[p.servicoId];
-  if(!state.processosExcluidos) state.processosExcluidos = [];
-  state.processosExcluidos.push({
-    id:'x'+Date.now(),
-    servicoNome:s.nome,
-    empresaNome:nomeParaProcesso(p),
-    ordemServico:p.ordemServico||null,
-    justificativa:justificativa,
-    excluidoPor: autor ? autor.nome : '—',
-    data:todayISO(),
-    hora:nowHM()
-  });
+  if(!ehTeste){
+    var autor = currentUser();
+    var s = SERVICE_MAP[p.servicoId] || {nome:'Serviço não identificado'};
+    if(!state.processosExcluidos) state.processosExcluidos = [];
+    state.processosExcluidos.push({
+      id:'x'+Date.now(),
+      servicoNome:s.nome,
+      empresaNome:nomeParaProcesso(p),
+      ordemServico:p.ordemServico||null,
+      justificativa:justificativa,
+      excluidoPor: autor ? autor.nome : '—',
+      data:todayISO(),
+      hora:nowHM()
+    });
+  }
   state.processes = state.processes.filter(function(x){return x.id!==id;});
   saveState();
   closePanel();
@@ -4292,6 +4302,8 @@ async function confirmarExcluirProcesso(id){
     toast(liberou
       ? ('Processo excluído — o número '+p.ordemServico+' já está disponível para reuso.')
       : 'Processo excluído, mas não foi possível liberar o número da OS para reuso agora.');
+  } else if(ehTeste){
+    toast('Processo de teste excluído.');
   } else {
     toast('Processo excluído — motivo e responsável registrados em Processos excluídos.');
   }
@@ -4613,7 +4625,7 @@ window.PS = {
   abrirModalComplemento: abrirModalComplemento, confirmarAvancoComplemento: confirmarAvancoComplemento,
   abrirModalReiniciar: abrirModalReiniciar, confirmarReiniciarProcesso: confirmarReiniciarProcesso,
   abrirModalIncluirProcesso: abrirModalIncluirProcesso, confirmarIncluirProcessoManual: confirmarIncluirProcessoManual,
-  abrirModalExcluirProcesso: abrirModalExcluirProcesso, confirmarExcluirProcesso: confirmarExcluirProcesso,
+  abrirModalExcluirProcesso: abrirModalExcluirProcesso, confirmarExcluirProcesso: confirmarExcluirProcesso, atualizarModalExcluirTeste: atualizarModalExcluirTeste,
   manualAtualizarEtapas: manualAtualizarEtapas, manualToggleEmpresa: manualToggleEmpresa,
   goLinkPublico: goLinkPublico, linkPublicoSair: linkPublicoSair, linkPublicoSubmitGate: linkPublicoSubmitGate,
   linkPublicoAcompanharBuscar: linkPublicoAcompanharBuscar, linkPublicoSetTipo: linkPublicoSetTipo,
