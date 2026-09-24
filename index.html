@@ -1857,6 +1857,38 @@ function fabColetarSocios(){
   }
   return out;
 }
+async function fabArquivoReal(inputId, processoId, campoSlug){
+  var el = document.getElementById(inputId);
+  if(!el || !el.files || !el.files[0]) return null;
+  return await uploadArquivoReal(el.files[0], processoId, 'formulario/'+campoSlug);
+}
+async function fabColetarSociosReal(processoId){
+  var out = [];
+  var i = 1;
+  while(document.getElementById('fab-s'+i+'-nome')){
+    out.push({
+      nome: document.getElementById('fab-s'+i+'-nome').value.trim(),
+      rg: (document.getElementById('fab-s'+i+'-rg')||{}).value || '',
+      cpf: (document.getElementById('fab-s'+i+'-cpf')||{}).value || '',
+      mae: (document.getElementById('fab-s'+i+'-mae')||{}).value || '',
+      nacionalidade: (document.getElementById('fab-s'+i+'-nacionalidade')||{}).value || '',
+      naturalidade: (document.getElementById('fab-s'+i+'-naturalidade')||{}).value || '',
+      nascimento: (document.getElementById('fab-s'+i+'-nasc')||{}).value || '',
+      titulo: (document.getElementById('fab-s'+i+'-titulo')||{}).value || '',
+      endereco: (document.getElementById('fab-s'+i+'-endereco')||{}).value || '',
+      estadoCivil: (document.getElementById('fab-s'+i+'-civil')||{}).value || '',
+      regime: (document.getElementById('fab-s'+i+'-regime')||{}).value || '',
+      fotoArquivo: await fabArquivoReal('fab-s'+i+'-foto', processoId, 'socio'+i+'-foto'),
+      irModo: (document.querySelector('input[name="fab-s'+i+'-ir-modo"]:checked')||{}).value || '',
+      irArquivo2025: await fabArquivoReal('fab-s'+i+'-ir-2025', processoId, 'socio'+i+'-ir2025'),
+      irArquivo2026: await fabArquivoReal('fab-s'+i+'-ir-2026', processoId, 'socio'+i+'-ir2026'),
+      irNumero2025: (document.getElementById('fab-s'+i+'-ir-numero-2025')||{}).value || '',
+      irNumero2026: (document.getElementById('fab-s'+i+'-ir-numero-2026')||{}).value || ''
+    });
+    i++;
+  }
+  return out;
+}
 function fabAtualizarSocios(){
   var radio = document.querySelector('input[name="fab-q2"]:checked');
   var wrap = document.getElementById('fab-q2-qtd-wrap');
@@ -2143,7 +2175,7 @@ function fabValidar(variant){
   return erros;
 }
 
-function enviarSolicitacaoAbertura(variant){
+async function enviarSolicitacaoAbertura(variant){
   variant = variant || 'abertura';
   var isTransf = variant === 'transformacao';
   var erros = fabValidar(variant);
@@ -2158,6 +2190,10 @@ function enviarSolicitacaoAbertura(variant){
     return;
   }
 
+  var submitBtn = document.getElementById('fab-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
+  toast('Enviando arquivos...');
+
   var u = currentUser();
   var q2radio = document.querySelector('input[name="fab-q2"]:checked');
   var q3radio = document.querySelector('input[name="fab-q3"]:checked');
@@ -2168,40 +2204,48 @@ function enviarSolicitacaoAbertura(variant){
   var q13radio = document.querySelector('input[name="fab-q13"]:checked');
   var q14radio = document.querySelector('input[name="fab-q14"]:checked');
   var isProprio = q3radio.value==='proprio';
+  var servicoId = isTransf ? 'transformacao-mei-me' : 'abertura-cnpj';
+  var id = 'p'+Date.now();
 
-  var dados = {
-    nomeCompleto: document.getElementById('fab-q1-nome').value.trim(),
-    outrosSocios: q2radio.value==='sim',
-    qtdSocios: fabNumSocios(),
-    enderecoFiscalLucralize: q3radio.value==='lucralize',
-    enderecoProprio: isProprio ? document.getElementById('fab-q3-endereco').value.trim() : '',
-    iptuModo: isProprio && iptuModo ? iptuModo.value : '',
-    iptuIndice: (isProprio && iptuModo && iptuModo.value==='texto') ? document.getElementById('fab-q3-iptu-texto').value.trim() : '',
-    iptuArquivo: (isProprio && iptuModo && iptuModo.value==='upload') ? fabArquivoNome('fab-q3-iptu-file') : null,
-    areaM2: isProprio ? document.getElementById('fab-q3-area').value.trim() : '',
-    razaoSocial1: document.getElementById('fab-q4-razao1').value.trim(),
-    razaoSocial2: document.getElementById('fab-q4-razao2').value.trim(),
-    nomeFantasia: document.getElementById('fab-q5-fantasia').value.trim(),
-    capitalSocial: document.getElementById('fab-q6-capital').value.trim(),
-    atividadePrincipal: document.getElementById('fab-q7-atividade').value.trim(),
-    atividadesSecundarias: document.getElementById('fab-q8-secundarias').value.trim(),
-    socios: fabColetarSocios(),
-    naturezaJuridica: q10radio.value,
-    enquadramento: q11radio.value,
-    simplesNacional: q12radio.value,
-    telefoneOpcao: q13radio.value,
-    telefonePessoal: q13radio.value==='pessoal' ? document.getElementById('fab-q13-tel').value.trim() : '',
-    emailOpcao: q14radio.value,
-    emailPessoal: q14radio.value==='pessoal' ? document.getElementById('fab-q14-email').value.trim() : '',
-    cienteServico: true
-  };
+  var dados;
+  try{
+    dados = {
+      nomeCompleto: document.getElementById('fab-q1-nome').value.trim(),
+      outrosSocios: q2radio.value==='sim',
+      qtdSocios: fabNumSocios(),
+      enderecoFiscalLucralize: q3radio.value==='lucralize',
+      enderecoProprio: isProprio ? document.getElementById('fab-q3-endereco').value.trim() : '',
+      iptuModo: isProprio && iptuModo ? iptuModo.value : '',
+      iptuIndice: (isProprio && iptuModo && iptuModo.value==='texto') ? document.getElementById('fab-q3-iptu-texto').value.trim() : '',
+      iptuArquivo: (isProprio && iptuModo && iptuModo.value==='upload') ? await fabArquivoReal('fab-q3-iptu-file', id, 'iptu') : null,
+      areaM2: isProprio ? document.getElementById('fab-q3-area').value.trim() : '',
+      razaoSocial1: document.getElementById('fab-q4-razao1').value.trim(),
+      razaoSocial2: document.getElementById('fab-q4-razao2').value.trim(),
+      nomeFantasia: document.getElementById('fab-q5-fantasia').value.trim(),
+      capitalSocial: document.getElementById('fab-q6-capital').value.trim(),
+      atividadePrincipal: document.getElementById('fab-q7-atividade').value.trim(),
+      atividadesSecundarias: document.getElementById('fab-q8-secundarias').value.trim(),
+      socios: await fabColetarSociosReal(id),
+      naturezaJuridica: q10radio.value,
+      enquadramento: q11radio.value,
+      simplesNacional: q12radio.value,
+      telefoneOpcao: q13radio.value,
+      telefonePessoal: q13radio.value==='pessoal' ? document.getElementById('fab-q13-tel').value.trim() : '',
+      emailOpcao: q14radio.value,
+      emailPessoal: q14radio.value==='pessoal' ? document.getElementById('fab-q14-email').value.trim() : '',
+      cienteServico: true
+    };
+  }catch(e){
+    console.error(e);
+    if(submitBtn) submitBtn.disabled = false;
+    toast('Não foi possível enviar um ou mais arquivos. Tente novamente.');
+    return;
+  }
   if(isTransf){
     dados.razaoSocialAtual = document.getElementById('fab-transf-razaoatual').value.trim();
     dados.cnpjAtual = document.getElementById('fab-transf-cnpj').value.trim();
   }
 
-  var servicoId = isTransf ? 'transformacao-mei-me' : 'abertura-cnpj';
-  var id = 'p'+Date.now();
   finalizarNovoProcesso({
     id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
@@ -2219,11 +2263,17 @@ function renderFormularioAberturaResumo(p){
   var simples = {sim:'Sim', nao:'Não', nao_sei:'Não sei'}[d.simplesNacional] || d.simplesNacional;
   var enderecoInfo = d.enderecoFiscalLucralize ? 'Endereço fiscal Lucralize (Belo Horizonte)' : (d.enderecoProprio+' · Área: '+esc(d.areaM2)+' m²'+(d.iptuIndice?' · Índice cadastral IPTU: '+esc(d.iptuIndice):''));
 
-  function docRow(label, nome){
+  function docRow(label, doc){
+    if(!doc) return '';
+    var nomeArquivo = typeof doc === 'string' ? doc : doc.nome;
+    var path = doc && typeof doc === 'object' ? doc.path : null;
+    var btn = path
+      ? '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.baixarArquivoReal(\''+esc(path)+'\')">Baixar</button>'
+      : '<button class="btn btn-subtle btn-sm" style="flex:none;" disabled title="Arquivo original não disponível para download">Baixar</button>';
     return '<div class="file-row" style="align-items:flex-start;">'+
         '<span class="ic" style="margin-top:.1rem;">📄</span>'+
-        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nome)+'</span></span>'+
-        '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button>'+
+        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nomeArquivo)+'</span></span>'+
+        btn+
       '</div>';
   }
 
@@ -2571,7 +2621,7 @@ function altValidar(servicoId){
   return erros;
 }
 
-function enviarSolicitacaoAlteracao(servicoId){
+async function enviarSolicitacaoAlteracao(servicoId){
   var erros = altValidar(servicoId);
   var errBox = document.getElementById('alt-errors');
   if(erros.length){
@@ -2584,6 +2634,10 @@ function enviarSolicitacaoAlteracao(servicoId){
     return;
   }
 
+  var submitBtn = document.getElementById('alt-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
+  toast('Enviando arquivos...');
+
   var u = currentUser();
   var s = SERVICE_MAP[servicoId];
   var isComplexa = servicoId === 'alteracao-complexa';
@@ -2595,6 +2649,7 @@ function enviarSolicitacaoAlteracao(servicoId){
   var localRadio = document.querySelector('input[name="alt-local"]:checked');
   var iptuModo = document.querySelector('input[name="alt-iptu-modo"]:checked');
   var fantasiaChk = document.getElementById('alt-nome-fantasia-chk');
+  var id = 'p'+Date.now();
 
   var tiposLabels = [];
   if(endereco) tiposLabels.push('Endereço');
@@ -2603,7 +2658,9 @@ function enviarSolicitacaoAlteracao(servicoId){
   if(capital) tiposLabels.push('Capital Social');
   if(nome) tiposLabels.push('Nome Empresarial');
 
-  var dados = {
+  var dados;
+  try{
+  dados = {
     nomeCompleto: document.getElementById('alt-q1-nome').value.trim(),
     origemEstado: isComplexa ? document.getElementById('alt-origem-estado').value.trim() : '',
     destinoEstado: isComplexa ? document.getElementById('alt-destino-estado').value.trim() : '',
@@ -2619,19 +2676,24 @@ function enviarSolicitacaoAlteracao(servicoId){
     localConfirmacao: (endereco||atividades) && localRadio ? localRadio.value : '',
     iptuModo: (endereco||atividades||nome) && iptuModo ? iptuModo.value : '',
     iptuIndice: (endereco||atividades||nome) && iptuModo && iptuModo.value==='texto' ? document.getElementById('alt-iptu-texto').value.trim() : '',
-    iptuArquivo: (endereco||atividades||nome) && iptuModo && iptuModo.value==='upload' ? fabArquivoNome('alt-iptu-file') : null,
+    iptuArquivo: (endereco||atividades||nome) && iptuModo && iptuModo.value==='upload' ? await fabArquivoReal('alt-iptu-file', id, 'iptu') : null,
     iptuArea: (endereco||atividades) ? document.getElementById('alt-iptu-area').value.trim() : '',
     quadroDivisao: quadro ? document.getElementById('alt-quadro-capital').value.trim() : '',
     capitalNovoValor: capital ? document.getElementById('alt-capital-novo-valor').value.trim() : '',
     capitalPercentual: capital ? document.getElementById('alt-capital-percentual').value.trim() : '',
-    socios: (quadro||capital) ? fabColetarSocios() : [],
+    socios: (quadro||capital) ? await fabColetarSociosReal(id) : [],
     razaoSocialDesejada: nome ? document.getElementById('alt-nome-razao').value.trim() : '',
     alterarNomeFantasia: (nome && fantasiaChk) ? fantasiaChk.checked : false,
     nomeFantasiaNovo: (nome && fantasiaChk && fantasiaChk.checked) ? document.getElementById('alt-nome-fantasia-novo').value.trim() : '',
     cienteServico: true
   };
+  }catch(e){
+    console.error(e);
+    if(submitBtn) submitBtn.disabled = false;
+    toast('Não foi possível enviar um ou mais arquivos. Tente novamente.');
+    return;
+  }
 
-  var id = 'p'+Date.now();
   finalizarNovoProcesso({
     id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
@@ -2645,11 +2707,17 @@ function renderFormularioAlteracaoResumo(p){
   var d = p.formularioAlteracao;
   if(!d) return '';
 
-  function docRow(label, nome){
+  function docRow(label, doc){
+    if(!doc) return '';
+    var nomeArquivo = typeof doc === 'string' ? doc : doc.nome;
+    var path = doc && typeof doc === 'object' ? doc.path : null;
+    var btn = path
+      ? '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.baixarArquivoReal(\''+esc(path)+'\')">Baixar</button>'
+      : '<button class="btn btn-subtle btn-sm" style="flex:none;" disabled title="Arquivo original não disponível para download">Baixar</button>';
     return '<div class="file-row" style="align-items:flex-start;">'+
         '<span class="ic" style="margin-top:.1rem;">📄</span>'+
-        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nome)+'</span></span>'+
-        '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button>'+
+        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nomeArquivo)+'</span></span>'+
+        btn+
       '</div>';
   }
 
@@ -2893,7 +2961,7 @@ function baxValidar(){
   return erros;
 }
 
-function enviarSolicitacaoBaixa(){
+async function enviarSolicitacaoBaixa(){
   var erros = baxValidar();
   var errBox = document.getElementById('bax-errors');
   if(erros.length){
@@ -2906,11 +2974,16 @@ function enviarSolicitacaoBaixa(){
     return;
   }
 
+  var submitBtn = document.getElementById('bax-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
+  toast('Enviando arquivos...');
+
   var u = currentUser();
   var s = SERVICE_MAP['baixa-cnpj'];
   var q1radio = document.querySelector('input[name="bax-q1-pendencias"]:checked');
   var temPendencias = q1radio.value==='sim';
   var estadualNA = document.getElementById('bax-cert-estadual-na');
+  var id = 'p'+Date.now();
 
   var parcelamentos = {};
   ['federal','municipal','estadual'].forEach(function(esfera){
@@ -2924,19 +2997,26 @@ function enviarSolicitacaoBaixa(){
   });
   var regularizarRadio = document.querySelector('input[name="bax-regularizar"]:checked');
 
-  var dados = {
-    temPendencias: temPendencias,
-    certidaoFederalArquivo: !temPendencias ? fabArquivoNome('bax-cert-federal') : null,
-    estadualNaoAplica: !temPendencias ? !!(estadualNA && estadualNA.checked) : false,
-    certidaoEstadualArquivo: (!temPendencias && !(estadualNA && estadualNA.checked)) ? fabArquivoNome('bax-cert-estadual') : null,
-    certidaoMunicipalArquivo: !temPendencias ? fabArquivoNome('bax-cert-municipal') : null,
-    relatorioFiscalArquivo: !temPendencias ? fabArquivoNome('bax-relatorio-fiscal') : null,
-    parcelamentos: parcelamentos,
-    regularizacaoOpcao: temPendencias && regularizarRadio ? regularizarRadio.value : '',
-    cienteServico: true
-  };
+  var dados;
+  try{
+    dados = {
+      temPendencias: temPendencias,
+      certidaoFederalArquivo: !temPendencias ? await fabArquivoReal('bax-cert-federal', id, 'certidao-federal') : null,
+      estadualNaoAplica: !temPendencias ? !!(estadualNA && estadualNA.checked) : false,
+      certidaoEstadualArquivo: (!temPendencias && !(estadualNA && estadualNA.checked)) ? await fabArquivoReal('bax-cert-estadual', id, 'certidao-estadual') : null,
+      certidaoMunicipalArquivo: !temPendencias ? await fabArquivoReal('bax-cert-municipal', id, 'certidao-municipal') : null,
+      relatorioFiscalArquivo: !temPendencias ? await fabArquivoReal('bax-relatorio-fiscal', id, 'relatorio-fiscal') : null,
+      parcelamentos: parcelamentos,
+      regularizacaoOpcao: temPendencias && regularizarRadio ? regularizarRadio.value : '',
+      cienteServico: true
+    };
+  }catch(e){
+    console.error(e);
+    if(submitBtn) submitBtn.disabled = false;
+    toast('Não foi possível enviar um ou mais arquivos. Tente novamente.');
+    return;
+  }
 
-  var id = 'p'+Date.now();
   finalizarNovoProcesso({
     id:id, servicoId:'baixa-cnpj', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
@@ -2950,11 +3030,17 @@ function renderFormularioBaixaResumo(p){
   var d = p.formularioBaixa;
   if(!d) return '';
 
-  function docRow(label, nome){
+  function docRow(label, doc){
+    if(!doc) return '';
+    var nomeArquivo = typeof doc === 'string' ? doc : doc.nome;
+    var path = doc && typeof doc === 'object' ? doc.path : null;
+    var btn = path
+      ? '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.baixarArquivoReal(\''+esc(path)+'\')">Baixar</button>'
+      : '<button class="btn btn-subtle btn-sm" style="flex:none;" disabled title="Arquivo original não disponível para download">Baixar</button>';
     return '<div class="file-row" style="align-items:flex-start;">'+
         '<span class="ic" style="margin-top:.1rem;">📄</span>'+
-        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nome)+'</span></span>'+
-        '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button>'+
+        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nomeArquivo)+'</span></span>'+
+        btn+
       '</div>';
   }
 
@@ -3094,7 +3180,7 @@ function alvValidar(){
   return erros;
 }
 
-function enviarSolicitacaoAlvara(){
+async function enviarSolicitacaoAlvara(){
   var erros = alvValidar();
   var errBox = document.getElementById('alv-errors');
   if(erros.length){
@@ -3107,24 +3193,36 @@ function enviarSolicitacaoAlvara(){
     return;
   }
 
+  var submitBtn = document.getElementById('alv-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
+  toast('Enviando arquivos...');
+
   var u = currentUser();
   var s = SERVICE_MAP['alvara-funcionamento'];
   var alvaraNA = document.getElementById('alv-alvara-atual-na');
   var sanitarioNA = document.getElementById('alv-sanitario-na');
   var localRadio = document.querySelector('input[name="alv-local"]:checked');
-
-  var dados = {
-    alvaraAtualNaoPossui: !!(alvaraNA && alvaraNA.checked),
-    alvaraAtualArquivo: !(alvaraNA && alvaraNA.checked) ? fabArquivoNome('alv-alvara-atual') : null,
-    localOpcao: localRadio ? localRadio.value : '',
-    localAtividade: (localRadio && localRadio.value==='presencial') ? document.getElementById('alv-local-atividade').value.trim() : '',
-    iptuArquivo: fabArquivoNome('alv-iptu'),
-    sanitarioNaoAplica: !!(sanitarioNA && sanitarioNA.checked),
-    sanitarioArquivo: !(sanitarioNA && sanitarioNA.checked) ? fabArquivoNome('alv-sanitario') : null,
-    cienteServico: true
-  };
-
   var id = 'p'+Date.now();
+
+  var dados;
+  try{
+    dados = {
+      alvaraAtualNaoPossui: !!(alvaraNA && alvaraNA.checked),
+      alvaraAtualArquivo: !(alvaraNA && alvaraNA.checked) ? await fabArquivoReal('alv-alvara-atual', id, 'alvara-atual') : null,
+      localOpcao: localRadio ? localRadio.value : '',
+      localAtividade: (localRadio && localRadio.value==='presencial') ? document.getElementById('alv-local-atividade').value.trim() : '',
+      iptuArquivo: await fabArquivoReal('alv-iptu', id, 'iptu'),
+      sanitarioNaoAplica: !!(sanitarioNA && sanitarioNA.checked),
+      sanitarioArquivo: !(sanitarioNA && sanitarioNA.checked) ? await fabArquivoReal('alv-sanitario', id, 'sanitario') : null,
+      cienteServico: true
+    };
+  }catch(e){
+    console.error(e);
+    if(submitBtn) submitBtn.disabled = false;
+    toast('Não foi possível enviar um ou mais arquivos. Tente novamente.');
+    return;
+  }
+
   finalizarNovoProcesso({
     id:id, servicoId:'alvara-funcionamento', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
@@ -3138,11 +3236,17 @@ function renderFormularioAlvaraResumo(p){
   var d = p.formularioAlvara;
   if(!d) return '';
 
-  function docRow(label, nome){
+  function docRow(label, doc){
+    if(!doc) return '';
+    var nomeArquivo = typeof doc === 'string' ? doc : doc.nome;
+    var path = doc && typeof doc === 'object' ? doc.path : null;
+    var btn = path
+      ? '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.baixarArquivoReal(\''+esc(path)+'\')">Baixar</button>'
+      : '<button class="btn btn-subtle btn-sm" style="flex:none;" disabled title="Arquivo original não disponível para download">Baixar</button>';
     return '<div class="file-row" style="align-items:flex-start;">'+
         '<span class="ic" style="margin-top:.1rem;">📄</span>'+
-        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nome)+'</span></span>'+
-        '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button>'+
+        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nomeArquivo)+'</span></span>'+
+        btn+
       '</div>';
   }
 
@@ -3274,7 +3378,7 @@ function repValidar(){
   return erros;
 }
 
-function enviarSolicitacaoRepresentante(){
+async function enviarSolicitacaoRepresentante(){
   var erros = repValidar();
   var errBox = document.getElementById('rep-errors');
   if(erros.length){
@@ -3287,22 +3391,34 @@ function enviarSolicitacaoRepresentante(){
     return;
   }
 
+  var submitBtn = document.getElementById('rep-submit-btn');
+  if(submitBtn) submitBtn.disabled = true;
+  toast('Enviando arquivos...');
+
   var u = currentUser();
   var s = SERVICE_MAP['alteracao-dbe'];
   var representante = !!(document.getElementById('rep-tipo-representante')||{}).checked;
   var contato = !!(document.getElementById('rep-tipo-contato')||{}).checked;
-
-  var dados = {
-    representante: representante,
-    documentoNovoRepresentante: representante ? fabArquivoNome('rep-documento') : null,
-    certificadoDigitalCiente: representante,
-    contato: contato,
-    telefoneDesejado: contato ? document.getElementById('rep-telefone').value.trim() : '',
-    emailDesejado: contato ? document.getElementById('rep-email').value.trim() : '',
-    cienteServico: true
-  };
-
   var id = 'p'+Date.now();
+
+  var dados;
+  try{
+    dados = {
+      representante: representante,
+      documentoNovoRepresentante: representante ? await fabArquivoReal('rep-documento', id, 'documento-representante') : null,
+      certificadoDigitalCiente: representante,
+      contato: contato,
+      telefoneDesejado: contato ? document.getElementById('rep-telefone').value.trim() : '',
+      emailDesejado: contato ? document.getElementById('rep-email').value.trim() : '',
+      cienteServico: true
+    };
+  }catch(e){
+    console.error(e);
+    if(submitBtn) submitBtn.disabled = false;
+    toast('Não foi possível enviar um ou mais arquivos. Tente novamente.');
+    return;
+  }
+
   finalizarNovoProcesso({
     id:id, servicoId:'alteracao-dbe', status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
@@ -3316,11 +3432,17 @@ function renderFormularioRepresentanteResumo(p){
   var d = p.formularioRepresentante;
   if(!d) return '';
 
-  function docRow(label, nome){
+  function docRow(label, doc){
+    if(!doc) return '';
+    var nomeArquivo = typeof doc === 'string' ? doc : doc.nome;
+    var path = doc && typeof doc === 'object' ? doc.path : null;
+    var btn = path
+      ? '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.baixarArquivoReal(\''+esc(path)+'\')">Baixar</button>'
+      : '<button class="btn btn-subtle btn-sm" style="flex:none;" disabled title="Arquivo original não disponível para download">Baixar</button>';
     return '<div class="file-row" style="align-items:flex-start;">'+
         '<span class="ic" style="margin-top:.1rem;">📄</span>'+
-        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nome)+'</span></span>'+
-        '<button class="btn btn-subtle btn-sm" style="flex:none;" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button>'+
+        '<span class="name" style="white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35;">'+esc(label)+'<span style="display:block; font-size:.74rem; font-weight:500; color:var(--ink-faint); margin-top:.15rem;">'+esc(nomeArquivo)+'</span></span>'+
+        btn+
       '</div>';
   }
 
@@ -3402,7 +3524,9 @@ function renderFormularioManualResumo(p){
       '<span class="pill" style="background:var(--surface-2); color:var(--ink-soft);">Registro anterior a este portal</span>'+
     '</div>'+
     '<p style="font-size:.85rem; color:var(--ink-soft); line-height:1.5;">Este processo não passou pelo questionário digital do cliente — ele foi registrado a partir de um processo que já estava em andamento antes deste portal.</p>'+
-    (d.arquivo ? ('<div class="file-row"><span class="ic">📄</span><span class="name">'+esc(d.arquivo)+'</span><button class="btn btn-subtle btn-sm" onclick="PS.toast(\'Download simulado — protótipo\')">Baixar</button></div>')
+    (d.arquivo ? ('<div class="file-row"><span class="ic">📄</span><span class="name">'+esc(typeof d.arquivo==='string' ? d.arquivo : d.arquivo.nome)+'</span>'+
+        (d.arquivo.path ? '<button class="btn btn-subtle btn-sm" onclick="PS.baixarArquivoReal(\''+esc(d.arquivo.path)+'\')">Baixar</button>' : '<button class="btn btn-subtle btn-sm" disabled title="Arquivo original não disponível para download">Baixar</button>')+
+      '</div>')
       : '<p style="font-size:.84rem; color:var(--ink-faint);">Nenhum formulário/documento original foi anexado no momento da inclusão.</p>')+
   '</div>';
 }
@@ -4058,12 +4182,11 @@ function abrirModalIncluirProcesso(){
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
-function confirmarIncluirProcessoManual(){
+async function confirmarIncluirProcessoManual(){
   var empresaSel = document.getElementById('manual-empresa').value;
   var servicoId = document.getElementById('manual-servico').value;
   var etapaVal = document.getElementById('manual-etapa').value;
   var dataAbertura = document.getElementById('manual-data').value || todayISO();
-  var arquivo = fabArquivoNome('manual-formulario');
   var errBox = document.getElementById('manual-erro');
 
   var empresaId;
@@ -4085,12 +4208,22 @@ function confirmarIncluirProcessoManual(){
   else if(etapaVal==='concluido'){ status='concluido'; etapaAtual=s.etapas.length-1; }
   else { status='em_andamento'; etapaAtual=parseInt(etapaVal,10); }
 
+  var id = 'p'+Date.now();
+  var arquivo;
+  try{
+    arquivo = await fabArquivoReal('manual-formulario', id, 'andamento');
+  }catch(e){
+    console.error(e);
+    toast('Não foi possível enviar o arquivo. Tente novamente.');
+    return;
+  }
+
   var empresaObj = getCompany(empresaId);
   var processo = {
-    id:'p'+Date.now(), servicoId:servicoId, status:status, etapaAtual:etapaAtual,
+    id:id, servicoId:servicoId, status:status, etapaAtual:etapaAtual,
     criadoEm: dataAbertura, protocolo:'',
-    historico:[{data:dataAbertura, hora:nowHM(), texto:'Processo incluído manualmente pela equipe Lucralize a partir de um registro anterior a este portal.'+(arquivo?' Documento original anexado: '+arquivo+'.':''), autor:'lucralize'}],
-    documentosAndamento: arquivo ? [{nome:arquivo}] : [],
+    historico:[{data:dataAbertura, hora:nowHM(), texto:'Processo incluído manualmente pela equipe Lucralize a partir de um registro anterior a este portal.'+(arquivo?' Documento original anexado: '+arquivo.nome+'.':''), autor:'lucralize'}],
+    documentosAndamento: arquivo ? [arquivo] : [],
     documentosFinais: (status==='concluido' && s.etapas.length) ? [{nome:s.nome+' - Documento Final.pdf'}] : [],
     formularioManual: {arquivo:arquivo||null},
     empresaId: empresaId,
