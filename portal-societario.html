@@ -3521,12 +3521,21 @@ async function anexarDocPendente(processId, idx){
   toast('Enviando arquivo...');
   try{
     var doc = await uploadArquivoReal(file, processId, 'pendentes');
+    var snapshot = JSON.parse(JSON.stringify(p));
     p.solicitacaoDocs[idx].arquivo = file.name;
     p.solicitacaoDocs[idx].path = doc.path;
     p.historico.push({data:todayISO(), hora:nowHM(), texto:'Documento "'+p.solicitacaoDocs[idx].nome+'" anexado pelo cliente: '+file.name+'.', autor:'cliente'});
     saveState();
     render();
-    toast('Documento anexado!');
+    var ok = await salvarProcessoNoServidor(p);
+    if(ok){
+      toast('Documento anexado!');
+    } else {
+      Object.assign(p, snapshot);
+      saveState();
+      render();
+      toast('O arquivo foi enviado, mas não foi possível atualizar o processo. Tente novamente.');
+    }
   }catch(e){
     console.error(e);
     toast('Não foi possível enviar o arquivo. Tente novamente.');
@@ -3744,7 +3753,7 @@ function openDesistirModal(id){
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
-function confirmarDesistencia(id){
+async function confirmarDesistencia(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   var textarea = document.getElementById('desistir-justificativa');
   var justificativa = textarea ? textarea.value.trim() : '';
@@ -3753,23 +3762,42 @@ function confirmarDesistencia(id){
     if(errBox){ errBox.textContent = 'Por favor, informe a justificativa do motivo da desistência.'; errBox.style.display='block'; }
     return;
   }
+  var statusAnterior = p.status;
   p.status = 'cancelado';
   p.historico.push({data:todayISO(), hora:nowHM(), texto:'Cliente solicitou a desistência do processo. Motivo: '+justificativa+'.', autor:'cliente'});
   saveState();
   closePanel();
   render();
-  toast('Desistência registrada.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast('Desistência registrada.');
+  } else {
+    p.status = statusAnterior;
+    p.historico.pop();
+    saveState();
+    render();
+    toast('Não foi possível registrar a desistência. Verifique sua internet e tente novamente.');
+  }
 }
-function atribuirResponsavel(id, userId){
+async function atribuirResponsavel(id, userId){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return;
+  var anterior = p.responsavelId;
   p.responsavelId = userId || null;
   saveState();
   render();
   var u = userId ? getUser(userId) : null;
-  toast(u ? ('Processo atribuído a '+u.nome+'.') : 'Responsável removido do processo.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast(u ? ('Processo atribuído a '+u.nome+'.') : 'Responsável removido do processo.');
+  } else {
+    p.responsavelId = anterior;
+    saveState();
+    render();
+    toast('Não foi possível atribuir o responsável. Verifique sua internet e tente novamente.');
+  }
 }
-function enviarObservacaoCliente(id){
+async function enviarObservacaoCliente(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   if(!p) return;
   var textarea = document.getElementById('obs-cliente-'+id);
@@ -3782,17 +3810,34 @@ function enviarObservacaoCliente(id){
   p.historico.push({data:todayISO(), hora:nowHM(), texto:'Observação do cliente: '+texto, autor:'cliente', tipo:'observacao_cliente'});
   saveState();
   render();
-  toast('Observação enviada — a equipe Lucralize já pode ver no processo.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast('Observação enviada — a equipe Lucralize já pode ver no processo.');
+  } else {
+    p.historico.pop();
+    saveState();
+    render();
+    toast('Não foi possível enviar sua observação. Verifique sua internet e tente novamente.');
+  }
 }
 
-function salvarProtocolo(id){
+async function salvarProtocolo(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   var input = document.getElementById('protocolo-input-'+id);
   if(!p || !input) return;
+  var anterior = p.protocolo;
   p.protocolo = input.value.trim();
   saveState();
   render();
-  toast('Protocolo salvo.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast('Protocolo salvo.');
+  } else {
+    p.protocolo = anterior;
+    saveState();
+    render();
+    toast('Não foi possível salvar o protocolo. Verifique sua internet e tente novamente.');
+  }
 }
 
 function proximaEtapaLabel(p){
@@ -3810,9 +3855,10 @@ function avancarEtapa(id){
   if(etapaExigePendencias(proxLabel)){ abrirModalComplemento(id); return; }
   executarAvancoEtapa(id, null);
 }
-function executarAvancoEtapa(id, pendenciasTexto){
+async function executarAvancoEtapa(id, pendenciasTexto){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   var s = SERVICE_MAP[p.servicoId];
+  var snapshot = JSON.parse(JSON.stringify(p));
   var sufixoPendencias = pendenciasTexto ? ' Informações pendentes: '+pendenciasTexto : '';
   if(p.status==='aguardando_pagamento'){
     p.status='em_andamento'; p.etapaAtual=0;
@@ -3829,7 +3875,15 @@ function executarAvancoEtapa(id, pendenciasTexto){
   saveState();
   closePanel();
   render();
-  toast('Etapa atualizada — o cliente já vê a atualização no portal dele.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast('Etapa atualizada — o cliente já vê a atualização no portal dele.');
+  } else {
+    Object.assign(p, snapshot);
+    saveState();
+    render();
+    toast('Não foi possível atualizar a etapa. Verifique sua internet e tente novamente.');
+  }
 }
 function abrirModalComplemento(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
@@ -3884,7 +3938,7 @@ function abrirModalReiniciar(id){
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
-function confirmarReiniciarProcesso(id){
+async function confirmarReiniciarProcesso(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
   var s = SERVICE_MAP[p.servicoId];
   var radio = document.querySelector('input[name="reiniciar-etapa"]:checked');
@@ -3893,6 +3947,7 @@ function confirmarReiniciarProcesso(id){
     if(errBox){ errBox.textContent = 'Selecione para qual etapa o processo deve voltar.'; errBox.style.display='block'; }
     return;
   }
+  var snapshot = JSON.parse(JSON.stringify(p));
   var idx = parseInt(radio.value, 10);
   var statusAnterior = p.status;
   if(idx===-1){
@@ -3905,7 +3960,15 @@ function confirmarReiniciarProcesso(id){
   saveState();
   closePanel();
   render();
-  toast('Processo reiniciado para: '+label+'.');
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast('Processo reiniciado para: '+label+'.');
+  } else {
+    Object.assign(p, snapshot);
+    saveState();
+    render();
+    toast('Não foi possível reiniciar o processo. Verifique sua internet e tente novamente.');
+  }
 }
 async function anexarDocumento(id, categoria){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
@@ -3917,9 +3980,18 @@ async function anexarDocumento(id, categoria){
   toast('Enviando arquivo...');
   try{
     var doc = await uploadArquivoReal(file, id, subpasta);
+    var snapshot = JSON.parse(JSON.stringify(p));
     p[campo].push(doc);
     saveState(); render();
-    toast('Documento '+(categoria==='andamento'?'de andamento':'final')+' anexado.');
+    var ok = await salvarProcessoNoServidor(p);
+    if(ok){
+      toast('Documento '+(categoria==='andamento'?'de andamento':'final')+' anexado.');
+    } else {
+      Object.assign(p, snapshot);
+      saveState();
+      render();
+      toast('O arquivo foi enviado, mas não foi possível atualizar o processo. Tente novamente.');
+    }
   }catch(e){
     console.error(e);
     toast('Não foi possível enviar o arquivo. Tente novamente.');
