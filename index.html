@@ -889,20 +889,23 @@ async function salvarProcessoNoServidor(processo, ehNovo){
          a inserção anônima (com check: empresa_id nulo), mas NÃO existe
          política de SELECT para o papel anônimo nessa tabela — de propósito,
          para que um visitante não consiga ler processos de outras pessoas.
-         Isso significa que o .select() encadeado depois do upsert (usado nos
-         outros casos abaixo para confirmar que a linha foi realmente gravada)
-         sempre volta vazio aqui, mesmo quando a inserção deu certo — o que
-         fazia o app achar que a gravação falhou e tentar de novo, e a segunda
-         tentativa então SIM falhava de verdade (upsert em cima do mesmo id
-         vira UPDATE, e não há política de UPDATE para anônimo), resultando no
-         erro "Não foi possível enviar sua solicitação" mesmo com o envio
-         original correto. Por isso, só para este caso, não exigimos retorno
-         do .select(): uma violação da política de inserção (INSERT ... WITH
-         CHECK) sempre gera um erro real do Postgres — diferente da política
-         de UPDATE, que apenas filtra silenciosamente — então checar somente
-         o erro já é uma confirmação segura de que a gravação aconteceu. */
+         Por isso usamos .insert() (nunca .upsert()) aqui: o método upsert()
+         do supabase-js pede ao PostgREST para devolver a linha gravada
+         (Prefer: return=representation) MESMO sem .select() encadeado, pois
+         upsert precisa dessa resposta para reportar se cada linha foi
+         inserida ou atualizada. E devolver a linha gravada, com RLS
+         ativado, exige que o Postgres também confira a política de SELECT
+         sobre essa linha — que não existe para o anônimo — então o comando
+         inteiro falha com "new row violates row-level security policy",
+         mesmo o INSERT em si sendo permitido pela política correta. Isso foi
+         confirmado testando diretamente: o mesmo upsert, chamado sem
+         .select(), ainda falhava; trocando só o método para .insert() (sem
+         upsert, sem pedir representação da linha), a gravação funcionou.
+         Como este caminho é exclusivamente para processos NOVOS (ehNovo),
+         não existe necessidade de semântica de upsert/conflito aqui mesmo —
+         .insert() é também o método semanticamente correto. */
       await comRetentativa(async function(){
-        var res = await supa.from('processos').upsert([processoParaRow(processo)]);
+        var res = await supa.from('processos').insert([processoParaRow(processo)]);
         if(res.error) throw res.error;
       });
       return true;

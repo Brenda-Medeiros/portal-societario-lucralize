@@ -883,6 +883,33 @@ async function salvarProcessoNoServidor(processo, ehNovo){
       });
       return true;
     }
+    if(ehNovo && !state.session){
+      /* criação de processo por visitante sem login (formulário público, ex.:
+         abertura de CNPJ vindo do link do WhatsApp): a política de RLS libera
+         a inserção anônima (com check: empresa_id nulo), mas NÃO existe
+         política de SELECT para o papel anônimo nessa tabela — de propósito,
+         para que um visitante não consiga ler processos de outras pessoas.
+         Por isso usamos .insert() (nunca .upsert()) aqui: o método upsert()
+         do supabase-js pede ao PostgREST para devolver a linha gravada
+         (Prefer: return=representation) MESMO sem .select() encadeado, pois
+         upsert precisa dessa resposta para reportar se cada linha foi
+         inserida ou atualizada. E devolver a linha gravada, com RLS
+         ativado, exige que o Postgres também confira a política de SELECT
+         sobre essa linha — que não existe para o anônimo — então o comando
+         inteiro falha com "new row violates row-level security policy",
+         mesmo o INSERT em si sendo permitido pela política correta. Isso foi
+         confirmado testando diretamente: o mesmo upsert, chamado sem
+         .select(), ainda falhava; trocando só o método para .insert() (sem
+         upsert, sem pedir representação da linha), a gravação funcionou.
+         Como este caminho é exclusivamente para processos NOVOS (ehNovo),
+         não existe necessidade de semântica de upsert/conflito aqui mesmo —
+         .insert() é também o método semanticamente correto. */
+      await comRetentativa(async function(){
+        var res = await supa.from('processos').insert([processoParaRow(processo)]);
+        if(res.error) throw res.error;
+      });
+      return true;
+    }
     await comRetentativa(async function(){
       var res = await supa.from('processos').upsert([processoParaRow(processo)]).select();
       if(res.error) throw res.error;
