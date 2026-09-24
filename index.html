@@ -883,6 +883,30 @@ async function salvarProcessoNoServidor(processo, ehNovo){
       });
       return true;
     }
+    if(ehNovo && !state.session){
+      /* criação de processo por visitante sem login (formulário público, ex.:
+         abertura de CNPJ vindo do link do WhatsApp): a política de RLS libera
+         a inserção anônima (com check: empresa_id nulo), mas NÃO existe
+         política de SELECT para o papel anônimo nessa tabela — de propósito,
+         para que um visitante não consiga ler processos de outras pessoas.
+         Isso significa que o .select() encadeado depois do upsert (usado nos
+         outros casos abaixo para confirmar que a linha foi realmente gravada)
+         sempre volta vazio aqui, mesmo quando a inserção deu certo — o que
+         fazia o app achar que a gravação falhou e tentar de novo, e a segunda
+         tentativa então SIM falhava de verdade (upsert em cima do mesmo id
+         vira UPDATE, e não há política de UPDATE para anônimo), resultando no
+         erro "Não foi possível enviar sua solicitação" mesmo com o envio
+         original correto. Por isso, só para este caso, não exigimos retorno
+         do .select(): uma violação da política de inserção (INSERT ... WITH
+         CHECK) sempre gera um erro real do Postgres — diferente da política
+         de UPDATE, que apenas filtra silenciosamente — então checar somente
+         o erro já é uma confirmação segura de que a gravação aconteceu. */
+      await comRetentativa(async function(){
+        var res = await supa.from('processos').upsert([processoParaRow(processo)]);
+        if(res.error) throw res.error;
+      });
+      return true;
+    }
     await comRetentativa(async function(){
       var res = await supa.from('processos').upsert([processoParaRow(processo)]).select();
       if(res.error) throw res.error;
