@@ -951,7 +951,7 @@ function effectiveCompanyForPricing(){
 }
 function companyProcesses(companyId){
   return state.processes.filter(function(p){ return p.empresaId===companyId; })
-    .sort(function(a,b){ return b.criadoEm.localeCompare(a.criadoEm); });
+    .sort(function(a,b){ return (b.criadoEm||'').localeCompare(a.criadoEm||''); });
 }
 function statusLabel(s){
   return {aguardando_pagamento:'Aguardando pagamento', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado pelo cliente'}[s] || s;
@@ -3974,7 +3974,7 @@ function renderAdminOverview(){
 
   var listaSection = '';
   if(selecionado){
-    var rows = selecionado.procsDoTipo.slice().sort(function(a,b){return b.criadoEm.localeCompare(a.criadoEm);}).map(function(p){
+    var rows = selecionado.procsDoTipo.slice().sort(function(a,b){return (b.criadoEm||'').localeCompare(a.criadoEm||'');}).map(function(p){
       var s=SERVICE_MAP[p.servicoId];
       var divisaoTxt = divisaoLabelCurto(divisaoForProcesso(p)) || '—';
       return '<tr class="clickable" onclick="PS.go({name:\'admin-processo-detalhe\', id:\''+p.id+'\'})">'+
@@ -4031,7 +4031,7 @@ function processoRowHtml(p){
 }
 function renderAdminProcessosRows(){
   var f = adminProcessosFiltro;
-  var rows = processosVisiveis().slice().sort(function(a,b){return b.criadoEm.localeCompare(a.criadoEm);}).filter(function(p){
+  var rows = processosVisiveis().slice().sort(function(a,b){return (b.criadoEm||'').localeCompare(a.criadoEm||'');}).filter(function(p){
     var nomeBusca = nomeParaProcesso(p);
     if(f.empresa && nomeBusca.toLowerCase().indexOf(f.empresa.toLowerCase())===-1) return false;
     if(f.servico && p.servicoId!==f.servico) return false;
