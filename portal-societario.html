@@ -1385,16 +1385,46 @@ function renderLinkPublicoAcompanhar(){
     '</div>'+
     '<div id="lp-acomp-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
     '<div class="field"><label>Número da ordem de serviço <span class="req-mark">*</span></label><input type="text" id="lp-os-input" class="mono" placeholder="Ex.: OS-001/2026" onkeydown="if(event.key===\'Enter\'){PS.linkPublicoAcompanharBuscar();}"></div>'+
-    '<button class="btn btn-primary btn-block" onclick="PS.linkPublicoAcompanharBuscar()">Buscar processo</button>'
+    '<button class="btn btn-primary btn-block" id="lp-buscar-btn" onclick="PS.linkPublicoAcompanharBuscar()">Buscar processo</button>'
   , {backOnclick:"PS.go({name:'link-publico', etapa:'divisao'})"});
 }
-function linkPublicoAcompanharBuscar(){
+async function linkPublicoAcompanharBuscar(){
   var input = document.getElementById('lp-os-input');
   var raw = (input.value||'').trim().toUpperCase();
   var errBox = document.getElementById('lp-acomp-erro');
+  var btn = document.getElementById('lp-buscar-btn');
   if(!raw){ if(errBox){ errBox.textContent='Digite o número da ordem de serviço.'; errBox.style.display='block'; } return; }
   var norm = normalizarOS(raw);
+
+  /* primeiro tenta localmente (processo que acabou de ser criado nesta mesma sessão) */
   var p = state.processes.filter(function(x){ return normalizarOS(x.ordemServico)===norm; })[0];
+
+  if(!p){
+    /* busca no servidor — necessário para quem está acompanhando de outro dispositivo
+       ou depois de fechar o navegador, já que o número da OS é a própria credencial
+       de acompanhamento (sem usuário e senha) */
+    if(btn){ btn.disabled = true; btn.textContent = 'Buscando...'; }
+    try{
+      var res = await supa.rpc('buscar_processo_por_os', {os_numero: norm});
+      if(!res.error && res.data && res.data.length){
+        p = rowParaProcesso(res.data[0]);
+        var jaExiste = state.processes.some(function(x){ return x.id===p.id; });
+        if(!jaExiste) state.processes.push(p); else state.processes = state.processes.map(function(x){ return x.id===p.id ? p : x; });
+      } else if(res.error){
+        console.error('Erro ao buscar processo por OS:', res.error);
+        if(btn){ btn.disabled = false; btn.textContent = 'Buscar processo'; }
+        if(errBox){ errBox.textContent='Não foi possível buscar o processo agora. Verifique sua internet e tente novamente.'; errBox.style.display='block'; }
+        return;
+      }
+    }catch(e){
+      console.error('Erro ao buscar processo por OS:', e);
+      if(btn){ btn.disabled = false; btn.textContent = 'Buscar processo'; }
+      if(errBox){ errBox.textContent='Não foi possível buscar o processo agora. Verifique sua internet e tente novamente.'; errBox.style.display='block'; }
+      return;
+    }
+    if(btn){ btn.disabled = false; btn.textContent = 'Buscar processo'; }
+  }
+
   if(!p){
     if(errBox){ errBox.textContent='Nenhum processo encontrado com esse número de ordem de serviço. Confira e tente novamente.'; errBox.style.display='block'; }
     return;
