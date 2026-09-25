@@ -779,6 +779,45 @@ async function carregarDadosAutenticados(authUserId){
   state.session = {userId: uPerfil.id};
   return true;
 }
+
+/* ---------- Atualização em segundo plano (sem precisar recarregar a página) ----------
+   Antes, os processos só eram buscados do servidor no login (equipe/cliente logado)
+   ou na busca inicial pelo número da OS (visitante do link público). Depois disso,
+   cada tela ficava com a cópia que já tinha em memória — então se o cliente mandasse
+   uma observação, ou a equipe alterasse algo, quem já estava com a outra tela aberta
+   só via a mudança dando F5 na página inteira. Isso dava a impressão de que a
+   informação "não tinha sido gravada" ou "não aparecia pra equipe", mesmo já estando
+   salva no banco. As funções abaixo buscam os dados mais recentes por conta própria,
+   sem que a pessoa precise recarregar nada. */
+function algumCampoEmEdicao(){
+  var el = document.activeElement;
+  return !!(el && (el.tagName==='TEXTAREA' || el.tagName==='INPUT' || el.tagName==='SELECT'));
+}
+async function atualizarDadosDoServidorSilenciosamente(){
+  try{
+    if(state.session){
+      var res = await supa.from('processos').select('*');
+      if(!res.error && res.data){
+        state.processes = res.data.map(rowParaProcesso);
+        if(!algumCampoEmEdicao()) render();
+      }
+    } else if(state.view && state.view.name==='link-publico' && state.view.etapa==='processo' && state.view.id){
+      var atualLocal = (state.processes||[]).filter(function(x){ return x.id===state.view.id; })[0];
+      if(atualLocal && atualLocal.ordemServico){
+        var r = await supa.rpc('buscar_processo_por_os', {os_numero: atualLocal.ordemServico});
+        if(!r.error && r.data && r.data.length){
+          var fresco = rowParaProcesso(r.data[0]);
+          state.processes = (state.processes||[]).map(function(x){ return x.id===fresco.id ? fresco : x; });
+          if(!algumCampoEmEdicao()) render();
+        }
+      }
+    }
+  }catch(e){
+    console.error('Atualização em segundo plano falhou (tentando de novo no próximo ciclo):', e);
+  }
+}
+setInterval(atualizarDadosDoServidorSilenciosamente, 20000);
+
 function mostrarErroLogin(msg){
   var errBox = document.getElementById('login-erro');
   if(errBox){ errBox.textContent = msg; errBox.style.display='block'; }
@@ -1099,7 +1138,13 @@ function seal(size, color){
 /* =========================================================
    5) NAVEGAÇÃO
    ========================================================= */
-function go(view){ state.view = view; saveState(); render(); window.scrollTo(0,0); }
+function go(view){
+  state.view = view; saveState(); render(); window.scrollTo(0,0);
+  var telasQueMerecemDadosFrescos = {'admin-processos':1,'admin-processo-detalhe':1,'cliente-processos':1,'cliente-processo-detalhe':1,'admin-overview':1};
+  if(view && (telasQueMerecemDadosFrescos[view.name] || (view.name==='link-publico' && view.etapa==='processo'))){
+    atualizarDadosDoServidorSilenciosamente();
+  }
+}
 async function login(userId){
   var ok = await carregarDadosAutenticados(userId);
   if(!ok){
