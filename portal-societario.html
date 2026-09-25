@@ -442,7 +442,8 @@ var SERVICES = [
     id:'transformacao-mei-me', categoria:'Ciclo de vida da empresa',
     nome:'Transformação de MEI para ME',
     resumo:'Migração do registro de MEI (Microempreendedor Individual) para ME (Microempresa), mantendo o mesmo CNPJ.',
-    precos:[{tipo:'LTDA',valor:810.5},{tipo:'Empresário Individual',valor:810.5},{tipo:'Sociedade de Advocacia',valor:810.5},{tipo:'S/A',valor:2050},{tipo:'Associação e ONG',valor:1621}],
+    /* Sem valor de serviço — nem para cliente Tech, nem Contabilidade (pedido da Brenda). */
+    precos:null,
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
     prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
     prazoConclusao:{dias:5, confirmado:true, obs:'a partir do recebimento de todas as informações e documentos'},
@@ -626,6 +627,13 @@ function seedState(){
    ========================================================= */
 var STORAGE_KEY = 'portalSocietarioDemoV1';
 var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de exemplo mudar, para forçar o reset automático de dados salvos antigos no navegador */
+/* Identificador da versão publicada — mudar a cada novo deploy. Usado só para
+   avisar quem já está com a tela aberta há um tempo que existe uma versão mais
+   nova (ver verificarNovaVersaoDisponivel), já que uma aba aberta nunca busca
+   sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
+   já publicadas "não tinham funcionado", quando na verdade a aba só estava
+   rodando a versão antiga. */
+var BUILD_ID = '20260925-b3';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -817,6 +825,32 @@ async function atualizarDadosDoServidorSilenciosamente(){
   }
 }
 setInterval(atualizarDadosDoServidorSilenciosamente, 20000);
+
+/* ---------- Aviso de nova versão publicada ----------
+   Como este app é uma página só, uma aba que já está aberta NUNCA busca sozinha
+   o HTML/JS mais novo — mesmo que a Brenda publique uma correção, quem já
+   estava com a tela aberta continua rodando o código antigo até dar um recarregar
+   de verdade na página. Isso já causou mais de uma vez a impressão de que uma
+   correção publicada "não funcionou". Este aviso aparece assim que detecta uma
+   versão mais nova no ar, com um botão para atualizar num clique. */
+async function verificarNovaVersaoDisponivel(){
+  try{
+    var r = await fetch(location.pathname + (location.pathname.indexOf('?')===-1?'?':'&') + '_v=' + Date.now(), {cache:'no-store'});
+    var t = await r.text();
+    var m = /BUILD_ID\s*=\s*'([^']+)'/.exec(t);
+    if(m && m[1] && m[1]!==BUILD_ID) mostrarBannerNovaVersao();
+  }catch(e){ /* silencioso — tenta de novo no próximo ciclo */ }
+}
+function mostrarBannerNovaVersao(){
+  if(document.getElementById('banner-nova-versao')) return;
+  var b = document.createElement('div');
+  b.id = 'banner-nova-versao';
+  b.style.cssText = 'position:fixed; left:0; right:0; bottom:0; background:var(--ink,#111); color:#fff; padding:.85rem 1.1rem; display:flex; gap:.9rem; align-items:center; justify-content:center; z-index:99999; font-size:.85rem; flex-wrap:wrap; box-shadow:0 -2px 12px rgba(0,0,0,.2);';
+  b.innerHTML = '<span>Existe uma versão mais nova desta tela.</span>'+
+    '<button style="background:#fff; color:#111; border:none; padding:.4rem .9rem; border-radius:6px; font-weight:700; cursor:pointer;" onclick="location.reload()">Atualizar agora</button>';
+  document.body.appendChild(b);
+}
+setInterval(verificarNovaVersaoDisponivel, 60000);
 
 function mostrarErroLogin(msg){
   var errBox = document.getElementById('login-erro');
@@ -1749,9 +1783,9 @@ function renderCatalogo(company, adminMode){
   var blocks = CATEGORY_ORDER.map(function(cat){
     var items = SERVICES.filter(function(s){return s.categoria===cat;});
     var cards = items.map(function(s){
-      var price = company ? priceForCompany(s, company) : (s.precos.length===1 ? s.precos[0] : null);
-      var priceHtml = price ? fmtMoney(price.valor) : 'Consulte valores';
-      var priceLabel = price ? (price.tipo==='Valor único'||price.tipo==='A partir de'||price.tipo==='Valor único (todos os tipos)' ? (s.id==='alvara-funcionamento'?'a partir de · '+company_or_generic(company):'valor único') : 'para '+price.tipo) : '';
+      var price = !s.precos ? null : (company ? priceForCompany(s, company) : (s.precos.length===1 ? s.precos[0] : null));
+      var priceHtml = !s.precos ? 'Sem custo adicional' : (price ? fmtMoney(price.valor) : 'Consulte valores');
+      var priceLabel = (s.precos && price) ? (price.tipo==='Valor único'||price.tipo==='A partir de'||price.tipo==='Valor único (todos os tipos)' ? (s.id==='alvara-funcionamento'?'a partir de · '+company_or_generic(company):'valor único') : 'para '+price.tipo) : '';
       return '<button class="card svc-card" onclick="PS.openService(\''+s.id+'\')">'+
         '<span class="eyebrow">'+esc(s.categoria)+'</span>'+
         '<span class="nome">'+esc(s.nome)+'</span>'+
@@ -1789,12 +1823,12 @@ function openService(serviceId){
   var admin = isAdmin();
   var semValores = !admin && !u && state.visitanteCnpjStatus==='nao_possui';
   var company = (admin || semValores) ? null : effectiveCompanyForPricing();
-  var myPrice = company ? priceForCompany(s, company) : null;
+  var myPrice = (company && s.precos) ? priceForCompany(s, company) : null;
 
-  var priceTableRows = s.precos.map(function(p){
+  var priceTableRows = s.precos ? s.precos.map(function(p){
     var mine = myPrice && p.tipo===myPrice.tipo;
     return '<tr class="'+(mine?'mine':'')+'"><td>'+esc(p.tipo)+(mine?' <span style="color:var(--primary); font-weight:700;">· sua empresa</span>':'')+'</td><td class="v">'+fmtMoney(p.valor)+'</td></tr>';
-  }).join('');
+  }).join('') : '';
 
   var parcelado = s.pagamentoParcelado ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Forma de pagamento</span><span class="val">'+
     s.pagamentoParcelado.map(function(pp){return pp.pct+'% '+pp.quando;}).join(' + ')+'</span></div>' : '';
@@ -1804,12 +1838,16 @@ function openService(serviceId){
   var boletoTag = s.prazoBoleto.confirmado ? '<span class="pill tag-confirmado">confirmado</span>' : '<span class="pill tag-estimado">estimado</span>';
   var conclusaoTag = s.prazoConclusao.confirmado ? '<span class="pill tag-confirmado">confirmado</span>' : '<span class="pill tag-estimado">estimado — a confirmar</span>';
 
-  var priceBig = myPrice ? fmtMoney(myPrice.valor) : (s.precos.length===1?fmtMoney(s.precos[0].valor):'Consulte a tabela abaixo');
+  var priceBig = myPrice ? fmtMoney(myPrice.valor) : (s.precos && s.precos.length===1?fmtMoney(s.precos[0].valor):'Consulte a tabela abaixo');
   var priceObs = s.precoObs ? '<p style="font-size:.78rem; color:var(--ink-faint); margin-top:.2rem;">'+esc(s.precoObs)+'</p>' : '';
 
   var actionBtn = admin ? '' : '<button class="btn btn-primary btn-block" onclick="PS.openSolicitarForm(\''+s.id+'\')">Solicitar este serviço</button>';
 
-  var valorCardHtml = semValores ? (''+
+  var valorCardHtml = !s.precos ? (''+
+    '<div class="card" style="padding:1.1rem 1.2rem;">'+
+      '<span class="eyebrow">Valor</span>'+
+      '<p style="font-size:.88rem; color:var(--ink-soft); margin-top:.5rem; line-height:1.5;">Sem valor de serviço — este processo não tem cobrança.</p>'+
+    '</div>') : semValores ? (''+
     '<div class="card" style="padding:1.1rem 1.2rem;">'+
       '<span class="eyebrow">Valor</span>'+
       '<p style="font-size:.88rem; color:var(--ink-soft); margin-top:.5rem; line-height:1.5;">Os valores das taxas das juntas comerciais serão informados pela nossa equipe, de acordo com o tipo societário da empresa e o estado em que o CNPJ será registrado.</p>'+
