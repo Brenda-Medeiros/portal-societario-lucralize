@@ -633,7 +633,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260925-b3';
+var BUILD_ID = '20260925-b4';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1146,8 +1146,89 @@ function priceForCompany(service, company){
   var match = company ? service.precos.filter(function(p){ return p.tipo===company.tipo; })[0] : null;
   return match || service.precos[0];
 }
+/* ---------- Linha do tempo dinâmica por processo ----------
+   Antes, cada serviço tinha uma lista fixa de etapas (service.etapas), igual
+   para todo processo daquele serviço. A Brenda pediu duas coisas que isso não
+   suportava: (1) toda vez que existir a etapa "Registro Digital na Junta
+   Comercial", logo depois precisa aparecer "Em análise pela Junta Comercial";
+   e (2) a Alteração Contratual (simples e complexa) precisa de um conjunto de
+   etapas diferente dependendo do que o cliente selecionou no formulário —
+   endereço/atividades/nome empresarial usa o fluxo completo (viabilidade até
+   a análise da Junta), já quando é só capital social e/ou quadro societário
+   o processo começa direto no DBE. Em nenhum dos dois casos de alteração o
+   licenciamento aparece pro cliente — vira um item de controle interno (ver
+   itensInternosDoProcesso). Por isso as etapas agora são calculadas por
+   processo (etapasDoProcesso), a partir do que o cliente respondeu, e não
+   mais fixas no catálogo. */
+function alteracaoVarianteCompleta(dados){
+  /* true = envolve endereço, atividades econômicas ou nome empresarial (usa o
+     fluxo completo até a Junta); false = só capital social e/ou quadro
+     societário (começa direto no DBE). Sem dados ainda (ex.: cadastro manual
+     da equipe, sem o formulário do cliente) assume o fluxo mais completo. */
+  if(!dados) return true;
+  var tipos = dados.tipos || [];
+  return tipos.indexOf('Endereço')!==-1 || tipos.indexOf('Atividades Econômicas')!==-1 || tipos.indexOf('Nome Empresarial')!==-1;
+}
+function inserirAnaliseJunta(lista){
+  var idx = lista.indexOf('Registro Digital na Junta Comercial');
+  if(idx!==-1 && lista.indexOf('Em análise pela Junta Comercial')===-1){
+    lista = lista.slice(0, idx+1).concat(['Em análise pela Junta Comercial'], lista.slice(idx+1));
+  }
+  return lista;
+}
+function etapasDoProcesso(p){
+  var s = SERVICE_MAP[p.servicoId];
+  if(!s) return [];
+  if(p.servicoId==='alteracao-simples' || p.servicoId==='alteracao-complexa'){
+    var completa = alteracaoVarianteCompleta(p.formularioAlteracao);
+    var lista = completa
+      ? ['Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial']
+      : ['Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial'];
+    return inserirAnaliseJunta(lista);
+  }
+  if(p.servicoId==='abertura-cnpj' || p.servicoId==='transformacao-mei-me'){
+    var usaEnderecoLucralize = !!(p.formularioAbertura && p.formularioAbertura.enderecoFiscalLucralize);
+    var lista2 = ['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital'];
+    lista2 = inserirAnaliseJunta(lista2);
+    if(usaEnderecoLucralize) lista2.push('Licenciamento e Alvará');
+    return lista2;
+  }
+  return s.etapas || [];
+}
+/* Lista "base" usada só quando ainda não existe um processo real (ex.: o
+   dropdown de etapas do cadastro manual) — assume o fluxo mais completo. */
+function etapasBaseParaServico(servicoId){
+  return etapasDoProcesso({servicoId:servicoId, formularioAbertura:{enderecoFiscalLucralize:true}, formularioAlteracao:{tipos:['Endereço']}});
+}
+/* Itens de controle interno: nunca aparecem pro cliente, só pra equipe, e
+   ficam disponíveis pra marcar com um tique independente da etapa/índice do
+   processo (ver renderProcessoDetalhe). Guardados em p.itensInternos, um
+   objeto {rótulo: true/false}. */
+function itensInternosDoProcesso(p){
+  if(p.servicoId==='alteracao-simples' || p.servicoId==='alteracao-complexa'){
+    return ['Licenciamento e Alvará'];
+  }
+  if(p.servicoId==='abertura-cnpj' || p.servicoId==='transformacao-mei-me'){
+    return ['Portal Nacional','Acesso à Prefeitura'];
+  }
+  return [];
+}
+async function toggleItemInterno(id, item){
+  var p = state.processes.filter(function(x){return x.id===id;})[0];
+  if(!p) return;
+  var snapshot = JSON.parse(JSON.stringify(p));
+  p.itensInternos = p.itensInternos || {};
+  p.itensInternos[item] = !p.itensInternos[item];
+  saveState(); render();
+  var ok = await salvarProcessoNoServidor(p);
+  if(!ok){
+    Object.assign(p, snapshot);
+    saveState(); render();
+    toast('Não foi possível salvar. Verifique sua internet e tente novamente.');
+  }
+}
 function stepStates(process, service){
-  var steps = service.etapas;
+  var steps = etapasDoProcesso(process);
   var out = [];
   for(var i=0;i<steps.length;i++){
     var st;
@@ -1762,7 +1843,7 @@ function renderClienteProcessos(u){
   var list = companyProcesses(u.empresaId);
   var rows = list.map(function(p){
     var svc = SERVICE_MAP[p.servicoId] || {nome:'Serviço não identificado', etapas:[]};
-    var pct = p.status==='concluido' ? 100 : p.status==='aguardando_pagamento' ? 0 : Math.round(((p.etapaAtual)/(svc.etapas.length||1))*100);
+    var pct = p.status==='concluido' ? 100 : p.status==='aguardando_pagamento' ? 0 : Math.round(((p.etapaAtual)/(etapasDoProcesso(p).length||1))*100);
     return '<tr class="clickable" onclick="PS.go({name:\'cliente-processo-detalhe\', id:\''+p.id+'\'})">'+
       '<td><strong>'+esc(svc.nome)+'</strong><div style="font-size:.74rem; color:var(--ink-faint);">Aberto em '+fmtDate(p.criadoEm)+'</div></td>'+
       '<td><span class="pill status-'+p.status+'"><span class="pill-dot"></span>'+statusLabel(p.status)+'</span></td>'+
@@ -3792,6 +3873,20 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
     '</div>';
   }).join('');
 
+  /* Itens de controle interno (ex.: Licenciamento e Alvará numa Alteração
+     Contratual, ou Portal Nacional/Acesso à Prefeitura numa abertura) —
+     nunca aparecem pro cliente, só na visão da equipe, e podem ser marcados
+     independente da etapa/status do processo. */
+  var itensInternos = adminMode ? itensInternosDoProcesso(p) : [];
+  var itensInternosHtml = itensInternos.length ? (''+
+    '<div class="card" style="padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.6rem;">'+
+      '<span class="eyebrow">Controle interno — não aparece para o cliente</span>'+
+      itensInternos.map(function(item){
+        var marcado = !!(p.itensInternos && p.itensInternos[item]);
+        return '<label class="radio-option" style="align-items:center;"><input type="checkbox"'+(marcado?' checked':'')+' onchange="PS.toggleItemInterno(\''+p.id+'\', \''+esc(item)+'\')"> '+esc(item)+'</label>';
+      }).join('')+
+    '</div>') : '';
+
   var histHtml = p.historico.slice().reverse().map(function(h){
     var ehObservacao = h.tipo==='observacao_cliente';
     return '<div style="display:flex; gap:.8rem; font-size:.84rem;">'+
@@ -3829,8 +3924,9 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
   var adminActions = '';
   if(adminMode){
     var bloqueiaConfirmarPagamento = ehFreelancer && p.status==='aguardando_pagamento';
+    var etapasP = etapasDoProcesso(p);
     var nextLabel = p.status==='cancelado' ? null : (p.status==='aguardando_pagamento' ? 'Confirmar pagamento e iniciar processo'
-      : (p.etapaAtual < s.etapas.length-1 ? 'Avançar para: '+esc(s.etapas[p.etapaAtual+1]) : null));
+      : (p.etapaAtual < etapasP.length-1 ? 'Avançar para: '+esc(etapasP[p.etapaAtual+1]) : null));
     adminActions = '<div class="card" style="padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.7rem;">'+
       '<span class="eyebrow">Ações do administrador</span>'+
       (p.status==='cancelado' ? '<div class="pill status-cancelado" style="align-self:flex-start;">Processo cancelado pelo cliente</div>' :
@@ -3891,6 +3987,7 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
 
   var col1Html = ''+
     '<div class="card" style="padding:1.2rem 1.3rem;"><span class="eyebrow">Linha do tempo</span><div class="stepper" style="margin-top:.9rem;">'+stepperHtml+'</div></div>'+
+    itensInternosHtml+
     formularioHtml+
     solicitacaoHtml;
 
@@ -4054,9 +4151,9 @@ async function salvarProtocolo(id){
 }
 
 function proximaEtapaLabel(p){
-  var s = SERVICE_MAP[p.servicoId];
-  if(p.status==='aguardando_pagamento') return s.etapas[0];
-  if(p.etapaAtual < s.etapas.length-1) return s.etapas[p.etapaAtual+1];
+  var etapas = etapasDoProcesso(p);
+  if(p.status==='aguardando_pagamento') return etapas[0];
+  if(p.etapaAtual < etapas.length-1) return etapas[p.etapaAtual+1];
   return null;
 }
 function etapaExigePendencias(label){
@@ -4070,16 +4167,16 @@ function avancarEtapa(id){
 }
 async function executarAvancoEtapa(id, pendenciasTexto){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
-  var s = SERVICE_MAP[p.servicoId];
+  var etapas = etapasDoProcesso(p);
   var snapshot = JSON.parse(JSON.stringify(p));
   var sufixoPendencias = pendenciasTexto ? ' Informações pendentes: '+pendenciasTexto : '';
   if(p.status==='aguardando_pagamento'){
     p.status='em_andamento'; p.etapaAtual=0;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+s.etapas[0]+'.'+sufixoPendencias, autor:'lucralize'});
-  } else if(p.etapaAtual < s.etapas.length-1){
+    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+etapas[0]+'.'+sufixoPendencias, autor:'lucralize'});
+  } else if(p.etapaAtual < etapas.length-1){
     p.etapaAtual++;
-    var chegouAoFim = p.etapaAtual===s.etapas.length-1;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto: s.etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:'lucralize'});
+    var chegouAoFim = p.etapaAtual===etapas.length-1;
+    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:'lucralize'});
     if(chegouAoFim){
       p.status='concluido';
       /* Antes, se a equipe não tivesse anexado o documento final de verdade,
@@ -4133,7 +4230,7 @@ function confirmarAvancoComplemento(id){
   executarAvancoEtapa(id, texto);
 }
 function reiniciarProcessoOpcoesHtml(p, s){
-  var opcoes = [{idx:-1, label:'Pagamento confirmado'}].concat(s.etapas.map(function(label, i){ return {idx:i, label:label}; }));
+  var opcoes = [{idx:-1, label:'Pagamento confirmado'}].concat(etapasDoProcesso(p).map(function(label, i){ return {idx:i, label:label}; }));
   return opcoes.map(function(o){
     var atual = (p.status==='aguardando_pagamento' ? -1 : p.etapaAtual) === o.idx;
     return '<label class="radio-option"><input type="radio" name="reiniciar-etapa" value="'+o.idx+'"'+(atual?' checked':'')+'> '+esc(o.label)+(atual?' <span style="color:var(--ink-faint); font-weight:500;">(etapa atual)</span>':'')+'</label>';
@@ -4159,7 +4256,6 @@ function abrirModalReiniciar(id){
 }
 async function confirmarReiniciarProcesso(id){
   var p = state.processes.filter(function(x){return x.id===id;})[0];
-  var s = SERVICE_MAP[p.servicoId];
   var radio = document.querySelector('input[name="reiniciar-etapa"]:checked');
   var errBox = document.getElementById('reiniciar-erro');
   if(!radio){
@@ -4174,7 +4270,7 @@ async function confirmarReiniciarProcesso(id){
   } else {
     p.status='em_andamento'; p.etapaAtual=idx;
   }
-  var label = idx===-1 ? 'Pagamento confirmado' : s.etapas[idx];
+  var label = idx===-1 ? 'Pagamento confirmado' : etapasDoProcesso(p)[idx];
   p.historico.push({data:todayISO(), hora:nowHM(), texto:'Processo reiniciado manualmente pela equipe Lucralize para a etapa: '+label+'.'+(statusAnterior!==p.status?' (status anterior: '+statusLabel(statusAnterior)+')':''), autor:'lucralize'});
   saveState();
   closePanel();
@@ -4499,7 +4595,7 @@ function manualEtapaOptionsHtml(servicoId){
   var s = SERVICE_MAP[servicoId];
   if(!s) return '';
   var opts = ['<option value="aguardando_pagamento">Aguardando pagamento</option>'];
-  s.etapas.forEach(function(label, i){
+  etapasBaseParaServico(servicoId).forEach(function(label, i){
     opts.push('<option value="'+i+'">'+esc(label)+'</option>');
   });
   opts.push('<option value="concluido">Concluído</option>');
@@ -4568,10 +4664,9 @@ async function confirmarIncluirProcessoManual(){
     empresaId = empresaSel;
   }
 
-  var s = SERVICE_MAP[servicoId];
   var status, etapaAtual;
   if(etapaVal==='aguardando_pagamento'){ status='aguardando_pagamento'; etapaAtual=-1; }
-  else if(etapaVal==='concluido'){ status='concluido'; etapaAtual=s.etapas.length-1; }
+  else if(etapaVal==='concluido'){ status='concluido'; etapaAtual=etapasBaseParaServico(servicoId).length-1; }
   else { status='em_andamento'; etapaAtual=parseInt(etapaVal,10); }
 
   var id = 'p'+Date.now();
@@ -4769,7 +4864,7 @@ function abrirModalAcessoCriado(nome, email, senha){
    ========================================================= */
 window.PS = {
   login: login, logout: logout, go: go, setTheme: setTheme, resetDemo: resetDemo,
-  openService: openService, closePanel: closePanel, openEsqueciSenha: openEsqueciSenha,
+  openService: openService, closePanel: closePanel, openEsqueciSenha: openEsqueciSenha, toggleItemInterno: toggleItemInterno,
   submeterLogin: submeterLogin, trocarSenhaEnviarLink: trocarSenhaEnviarLink, trocarSenhaDefinirSenha: trocarSenhaDefinirSenha,
   trocarSenhaReenviarLink: trocarSenhaReenviarLink, trocarSenhaVoltarLogin: trocarSenhaVoltarLogin,
   selecionarTipoProcesso: selecionarTipoProcesso, mudarMesConcluidos: mudarMesConcluidos,
