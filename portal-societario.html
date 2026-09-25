@@ -633,7 +633,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260925-b4';
+var BUILD_ID = '20260925-b5';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1644,16 +1644,22 @@ function renderLinkPublicoAcompanhar(){
       '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">Digite o número da ordem de serviço que você recebeu ao solicitar o processo.</p>'+
     '</div>'+
     '<div id="lp-acomp-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
-    '<div class="field"><label>Número da ordem de serviço <span class="req-mark">*</span></label><input type="text" id="lp-os-input" class="mono" placeholder="Ex.: OS-001/2026" onkeydown="if(event.key===\'Enter\'){PS.linkPublicoAcompanharBuscar();}"></div>'+
+    '<div class="field"><label>Número da ordem de serviço <span class="req-mark">*</span></label>'+
+      '<div style="display:flex; align-items:stretch;">'+
+        '<span class="mono" style="display:flex; align-items:center; padding:.65em .7em; border:1px solid var(--border); border-right:none; border-radius:var(--radius-s) 0 0 var(--radius-s); background:var(--surface-2); color:var(--ink-soft); font-weight:700;">OS-</span>'+
+        '<input type="text" id="lp-os-input" class="mono" style="border-radius:0 var(--radius-s) var(--radius-s) 0; flex:1; min-width:0;" placeholder="Ex.: 001/2026" onkeydown="if(event.key===\'Enter\'){PS.linkPublicoAcompanharBuscar();}">'+
+      '</div>'+
+    '</div>'+
     '<button class="btn btn-primary btn-block" id="lp-buscar-btn" onclick="PS.linkPublicoAcompanharBuscar()">Buscar processo</button>'
   , {backOnclick:"PS.go({name:'link-publico', etapa:'divisao'})"});
 }
 async function linkPublicoAcompanharBuscar(){
   var input = document.getElementById('lp-os-input');
-  var raw = (input.value||'').trim().toUpperCase();
+  var digitado = (input.value||'').trim();
   var errBox = document.getElementById('lp-acomp-erro');
   var btn = document.getElementById('lp-buscar-btn');
-  if(!raw){ if(errBox){ errBox.textContent='Digite o número da ordem de serviço.'; errBox.style.display='block'; } return; }
+  if(!digitado){ if(errBox){ errBox.textContent='Digite o número da ordem de serviço.'; errBox.style.display='block'; } return; }
+  var raw = ('OS-'+digitado).toUpperCase();
   var norm = normalizarOS(raw);
 
   /* primeiro tenta localmente (processo que acabou de ser criado nesta mesma sessão) */
@@ -1892,6 +1898,81 @@ function servicoNomeSemFilial(s){
   var ov = SERVICO_SEM_FILIAL_OVERRIDES[s.id];
   return ov ? ov.nome : s.nome.replace(/\s*ou Filial/i,'');
 }
+
+/* Lista das perguntas de cada formulário de solicitação, para visão interna da equipe
+   no catálogo de serviços (aba "ver detalhes"). Itens que começam com ↳ são condicionais
+   (só aparecem para o cliente conforme a resposta da pergunta anterior). Manter em sincronia
+   com os campos reais de cada openSolicitarForm*. */
+var PERGUNTAS_ABERTURA = [
+  'Nome completo',
+  'A empresa terá outros sócios além de você? — se sim, quantos sócios',
+  'Você irá utilizar o serviço de endereço fiscal Lucralize?',
+  '↳ Se não: endereço completo, índice cadastral do IPTU (upload da guia ou digitado) e área em m² utilizada',
+  '1ª e 2ª opção de Razão Social (nome empresarial)',
+  'Qual será o nome fantasia? (opcional)',
+  'Qual o valor do capital social?',
+  'Qual será a atividade principal da empresa? (CNAE ou descrição)',
+  'Quais serão as atividades secundárias? (CNAE ou descrição)',
+  'Dados de cada sócio: nome completo, título de eleitor, endereço completo, documento de identificação com foto, estado civil (e regime de casamento, se casado) e recibo/número de IR 2025 e 2026',
+  'Natureza Jurídica (LTDA ou Empresário Individual)',
+  'Enquadramento da empresa (ME / EPP / Outros)',
+  'A empresa será optante pelo Simples Nacional?',
+  'Telefone a incluir no cartão CNPJ (pessoal ou da Lucralize)',
+  'E-mail a incluir no cartão CNPJ (pessoal ou da Lucralize)',
+  'Confirmação de ciência sobre o serviço prestado (não inclui retirada de alvará)'
+];
+var PERGUNTAS_POR_SERVICO = {
+  'abertura-cnpj': PERGUNTAS_ABERTURA,
+  'transformacao-mei-me': [PERGUNTAS_ABERTURA[0], 'Dados da empresa que já possui (MEI): Razão Social atual e número do CNPJ'].concat(PERGUNTAS_ABERTURA.slice(1)),
+  'alteracao-simples': [
+    'Nome completo',
+    'Qual será a Alteração Contratual realizada? (Endereço / Quadro Societário / Atividades Econômicas / Capital Social / Nome Empresarial — pode selecionar mais de uma)',
+    '↳ Se Endereço: novo endereço completo',
+    '↳ Se Atividades Econômicas: atividade principal e atividades secundárias (CNAE ou descrição)',
+    '↳ Se Endereço ou Atividades Econômicas: a atividade será presencial no endereço ou apenas fins fiscais? — se presencial, quais atividades serão exercidas no local; e área em m²',
+    '↳ Se Endereço, Atividades Econômicas ou Nome Empresarial: guia de IPTU (upload ou índice cadastral digitado)',
+    '↳ Se Quadro Societário: como ficará a divisão do quadro societário após a alteração',
+    '↳ Se Capital Social: novo valor do capital social e divisão percentual entre os sócios',
+    '↳ Se Quadro Societário ou Capital Social: dados de cada sócio envolvido (nome, título de eleitor, endereço, documento com foto, estado civil/regime, IR 2025 e 2026)',
+    '↳ Se Nome Empresarial: razão social desejada, e novo nome fantasia (se também quiser alterar)',
+    'Confirmação de ciência sobre o serviço prestado (não inclui retirada de alvará)'
+  ],
+  'baixa-cnpj': [
+    'O CNPJ possui pendências (obrigações financeiras ou acessórias) em aberto?',
+    '↳ Se não: Certidão Negativa Federal, Estadual (ou "não possui inscrição estadual"), Municipal, e relatório de situação fiscal',
+    '↳ Se sim: parcelamentos ativos por esfera (Federal/Municipal/Estadual) — quantidade e situação de pagamento; e se deseja regularizar antes ou prosseguir sem regularizar (com ciência de que dívidas podem recair sobre o CPF do responsável)',
+    'Confirmação de ciência sobre as obrigações do último mês de atividade e o honorário da última competência'
+  ],
+  'alvara-funcionamento': [
+    'Envio do alvará de funcionamento atual (ou "não possuo")',
+    'A atividade será exercida presencialmente no endereço, ou é apenas para fins fiscais? — se presencial, quais atividades',
+    'Envio da guia de IPTU do imóvel',
+    'Envio do alvará sanitário (ou "não se aplica")',
+    'Confirmação de ciência (sem acompanhamento de vistoria/vencimento; licenciamento 100% online)'
+  ],
+  'alteracao-dbe': [
+    'O que você deseja atualizar? (Representante Legal e/ou Contato do cartão CNPJ — pode selecionar ambos)',
+    '↳ Se Representante Legal: documento pessoal (RG/CNH) do novo representante e ciência sobre a emissão de novo certificado digital',
+    '↳ Se Contato: telefone desejado e e-mail desejado'
+  ]
+};
+PERGUNTAS_POR_SERVICO['alteracao-complexa'] = [PERGUNTAS_POR_SERVICO['alteracao-simples'][0], 'Esta alteração contratual complexa envolve mudança entre estados: UF de origem, UF de destino e município de destino'].concat(PERGUNTAS_POR_SERVICO['alteracao-simples'].slice(1));
+
+function perguntasCatalogoHtml(servicoId){
+  var itens = PERGUNTAS_POR_SERVICO[servicoId] || ['Cliente anexa os documentos indicados em "Documentação necessária" acima e pode descrever informações adicionais em um campo de texto livre.'];
+  var n = 0;
+  var linhas = itens.map(function(t){
+    if(t.indexOf('↳')===0){
+      return '<div style="margin-left:1.2rem; font-size:.82rem; color:var(--ink-soft); line-height:1.45;">— '+esc(t.slice(1).trim())+'</div>';
+    }
+    n++;
+    return '<div style="font-size:.86rem; color:var(--ink); line-height:1.45;"><strong>'+n+'.</strong> '+esc(t)+'</div>';
+  }).join('');
+  return '<div style="margin-top:1.4rem;">'+
+    '<span class="eyebrow">Perguntas do formulário (visão interna da equipe)</span>'+
+    '<div style="margin-top:.6rem; display:flex; flex-direction:column; gap:.5rem;">'+linhas+'</div>'+
+  '</div>';
+}
 function servicoResumoSemFilial(s){
   var ov = SERVICO_SEM_FILIAL_OVERRIDES[s.id];
   return ov ? ov.resumo : s.resumo;
@@ -1962,6 +2043,7 @@ function openService(serviceId){
         '</div>'+
 
         '<div><span class="eyebrow">Documentação necessária</span><div style="margin-top:.6rem;">'+docsHtml+'</div></div>'+
+        (admin ? perguntasCatalogoHtml(serviceId) : '')+
       '</div>'+
       '<div class="panel-foot">'+
         '<button class="btn btn-ghost" onclick="PS.closePanel()">Fechar</button>'+actionBtn+
@@ -2671,6 +2753,11 @@ function renderFormularioAberturaResumo(p){
 function altBloco(id, title, body){
   return '<div class="q-block" id="'+id+'" style="display:none;"><div class="q-title">'+title+'</div>'+body+'</div>';
 }
+function altToggleLocal(){
+  var radio = document.querySelector('input[name="alt-local"]:checked');
+  var wrap = document.getElementById('alt-local-presencial-wrap');
+  if(wrap) wrap.style.display = (radio && radio.value==='presencial') ? 'flex' : 'none';
+}
 function altNumSocios(){
   var qtd = parseInt((document.getElementById('alt-socios-qtd')||{}).value, 10);
   if(!qtd || qtd<1) qtd = 1;
@@ -2768,17 +2855,16 @@ function openSolicitarFormAlteracao(servicoId){
     '<div class="field"><label>Novo endereço completo (com CEP) <span class="req-mark">*</span></label><input type="text" id="alt-endereco-novo" placeholder="Rua, número, bairro, cidade, UF, CEP"></div>');
 
   var blocoAtividades = altBloco('alt-bloco-atividades', 'Detalhes — Alteração de Atividades Econômicas', ''+
-    '<div class="field"><label>Nova atividade a incluir — CNAE <span class="req-mark">*</span></label><input type="text" id="alt-ativ-nova-cnae" placeholder="Código CNAE"></div>'+
-    '<div class="field"><label>Nova atividade a incluir — descrição <span class="req-mark">*</span></label><input type="text" id="alt-ativ-nova-desc" placeholder="Descrição da nova atividade"></div>'+
-    '<div class="field"><label>Atividade principal resultante — CNAE e descrição <span class="req-mark">*</span></label><input type="text" id="alt-ativ-principal" placeholder="Ex.: 62.01-5-01 — Desenvolvimento de programas de computador"></div>'+
-    '<div class="field"><label>Atividades secundárias resultantes — CNAE e descrição</label><textarea id="alt-ativ-secundarias" rows="3" placeholder="Liste os CNAEs e descrições das atividades secundárias resultantes"></textarea></div>');
+    '<div class="field"><label>Atividade principal — CNAE ou descrição <span class="req-mark">*</span></label><input type="text" id="alt-ativ-principal" placeholder="Ex.: 62.01-5-01 — Desenvolvimento de programas de computador"></div>'+
+    '<div class="field"><label>Atividades secundárias — CNAE ou descrição</label><textarea id="alt-ativ-secundarias" rows="3" placeholder="Liste os CNAEs e descrições das atividades secundárias"></textarea></div>');
 
   var blocoLocal = altBloco('alt-bloco-atividades-local', 'Confirmação — atividade presencial ou apenas fiscal', ''+
     '<div class="obs-note">Precisamos confirmar se a atividade será exercida presencialmente no endereço informado, ou se o endereço é utilizado apenas para fins fiscais (sem atividade presencial no local).</div>'+
     '<div class="radio-group">'+
-      '<label class="radio-option"><input type="radio" name="alt-local" value="presencial"> Haverá atividade presencial no endereço</label>'+
-      '<label class="radio-option"><input type="radio" name="alt-local" value="fiscal"> Apenas fins fiscais (sem atividade presencial no local)</label>'+
-    '</div>');
+      '<label class="radio-option"><input type="radio" name="alt-local" value="presencial" onchange="PS.altToggleLocal()"> Haverá atividade presencial no endereço</label>'+
+      '<label class="radio-option"><input type="radio" name="alt-local" value="fiscal" onchange="PS.altToggleLocal()"> Apenas fins fiscais (sem atividade presencial no local)</label>'+
+    '</div>'+
+    '<div class="field" id="alt-local-presencial-wrap" style="display:none;"><label>Especifique qual(is) atividade(s) será(ão) exercida(s) presencialmente no endereço <span class="req-mark">*</span></label><textarea id="alt-local-atividade" rows="2" placeholder="Descreva a(s) atividade(s) exercida(s) presencialmente"></textarea></div>');
 
   var blocoIptu = altBloco('alt-bloco-iptu', 'IPTU do endereço', ''+
     '<div class="field">'+
@@ -2874,12 +2960,12 @@ function altValidar(servicoId){
     req('alt-endereco-novo', 'Novo endereço completo (Endereço)');
   }
   if(atividades){
-    req('alt-ativ-nova-cnae', 'CNAE da nova atividade (Atividades Econômicas)');
-    req('alt-ativ-nova-desc', 'Descrição da nova atividade (Atividades Econômicas)');
-    req('alt-ativ-principal', 'Atividade principal resultante (Atividades Econômicas)');
+    req('alt-ativ-principal', 'Atividade principal (Atividades Econômicas)');
   }
   if(endereco || atividades){
-    if(!document.querySelector('input[name="alt-local"]:checked')) erros.push('Confirmação se a atividade é presencial ou apenas fiscal');
+    var localRadioV = document.querySelector('input[name="alt-local"]:checked');
+    if(!localRadioV) erros.push('Confirmação se a atividade é presencial ou apenas fiscal');
+    else if(localRadioV.value==='presencial') req('alt-local-atividade', 'Especificação da(s) atividade(s) presencial(is)');
     req('alt-iptu-area', 'Área a ser utilizada pela empresa em m²');
   }
   if(endereco || atividades || nome){
@@ -2982,12 +3068,11 @@ async function enviarSolicitacaoAlteracao(servicoId){
     tipos: tiposLabels,
     endereco: endereco ? { novoEndereco: document.getElementById('alt-endereco-novo').value.trim() } : null,
     atividades: atividades ? {
-      novaCnae: document.getElementById('alt-ativ-nova-cnae').value.trim(),
-      novaDesc: document.getElementById('alt-ativ-nova-desc').value.trim(),
       principalResultante: document.getElementById('alt-ativ-principal').value.trim(),
       secundariasResultantes: document.getElementById('alt-ativ-secundarias').value.trim()
     } : null,
     localConfirmacao: (endereco||atividades) && localRadio ? localRadio.value : '',
+    localAtividade: (endereco||atividades) && localRadio && localRadio.value==='presencial' ? document.getElementById('alt-local-atividade').value.trim() : '',
     iptuModo: (endereco||atividades||nome) && iptuModo ? iptuModo.value : '',
     iptuIndice: (endereco||atividades||nome) && iptuModo && iptuModo.value==='texto' ? document.getElementById('alt-iptu-texto').value.trim() : '',
     iptuArquivo: (endereco||atividades||nome) && iptuModo && iptuModo.value==='upload' ? await fabArquivoReal('alt-iptu-file', id, 'iptu') : null,
@@ -3074,11 +3159,11 @@ function renderFormularioAlteracaoResumo(p){
         (d.origemEstado ? '<div class="info-block"><span class="lbl">Transferência entre estados</span><span class="val">'+esc(d.origemEstado)+' → '+esc(d.destinoEstado)+' ('+esc(d.destinoMunicipio)+')</span></div>' : '')+
         (d.endereco ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Novo endereço</span><span class="val">'+esc(d.endereco.novoEndereco)+'</span></div>' : '')+
         (d.localConfirmacao ? '<div class="info-block"><span class="lbl">Atividade presencial ou fiscal</span><span class="val">'+(d.localConfirmacao==='presencial'?'Haverá atividade presencial':'Apenas fins fiscais')+'</span></div>' : '')+
+        (d.localAtividade ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Atividade(s) exercida(s) presencialmente</span><span class="val">'+esc(d.localAtividade)+'</span></div>' : '')+
         (d.iptuIndice ? '<div class="info-block"><span class="lbl">Índice cadastral IPTU</span><span class="val">'+esc(d.iptuIndice)+'</span></div>' : '')+
         (d.iptuArea ? '<div class="info-block"><span class="lbl">Área (m²)</span><span class="val">'+esc(d.iptuArea)+'</span></div>' : '')+
-        (d.atividades ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Nova atividade</span><span class="val">'+esc(d.atividades.novaCnae)+' — '+esc(d.atividades.novaDesc)+'</span></div>' : '')+
-        (d.atividades ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Atividade principal resultante</span><span class="val">'+esc(d.atividades.principalResultante)+'</span></div>' : '')+
-        (d.atividades && d.atividades.secundariasResultantes ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Atividades secundárias resultantes</span><span class="val">'+esc(d.atividades.secundariasResultantes)+'</span></div>' : '')+
+        (d.atividades ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Atividade principal</span><span class="val">'+esc(d.atividades.principalResultante)+'</span></div>' : '')+
+        (d.atividades && d.atividades.secundariasResultantes ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Atividades secundárias</span><span class="val">'+esc(d.atividades.secundariasResultantes)+'</span></div>' : '')+
         (d.quadroDivisao ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Divisão do quadro societário</span><span class="val" style="white-space:pre-line;">'+esc(d.quadroDivisao)+'</span></div>' : '')+
         (d.capitalNovoValor ? '<div class="info-block"><span class="lbl">Novo capital social</span><span class="val">'+esc(d.capitalNovoValor)+'</span></div>' : '')+
         (d.capitalPercentual ? '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Divisão percentual do capital</span><span class="val" style="white-space:pre-line;">'+esc(d.capitalPercentual)+'</span></div>' : '')+
@@ -4878,7 +4963,7 @@ window.PS = {
   fabToggleEmail: fabToggleEmail, fabToggleCiente: fabToggleCiente, enviarSolicitacaoAbertura: enviarSolicitacaoAbertura,
   fabToggleIrModo: fabToggleIrModo, openDesistirModal: openDesistirModal, confirmarDesistencia: confirmarDesistencia,
   enviarObservacaoCliente: enviarObservacaoCliente, atribuirResponsavel: atribuirResponsavel,
-  altToggleTipos: altToggleTipos, altToggleIptuModo: altToggleIptuModo, altRegenerarSocios: altRegenerarSocios,
+  altToggleTipos: altToggleTipos, altToggleIptuModo: altToggleIptuModo, altRegenerarSocios: altRegenerarSocios, altToggleLocal: altToggleLocal,
   altToggleNomeFantasia: altToggleNomeFantasia, altToggleCiente: altToggleCiente, enviarSolicitacaoAlteracao: enviarSolicitacaoAlteracao,
   baxToggleFluxo: baxToggleFluxo, baxToggleEstadualNA: baxToggleEstadualNA, baxToggleParcelamento: baxToggleParcelamento,
   baxToggleRegularizar: baxToggleRegularizar, baxToggleCiente: baxToggleCiente, enviarSolicitacaoBaixa: enviarSolicitacaoBaixa,
