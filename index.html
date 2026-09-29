@@ -863,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260929-b8';
+var BUILD_ID = '20260929-b9';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -5098,57 +5098,103 @@ function renderAdminUsuarios(){
   '<div class="card u-scroll-x"><table><thead><tr><th>Nome</th><th>Empresa</th><th>Perfil</th><th>Telefone</th><th>Último acesso</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function abrirEditarUsuario(id){
-  var u = getUser(id);
-  if(!u) return;
-  var c = u.empresaId ? getCompany(u.empresaId) : null;
-  var camposEmpresaHtml = c ? (''+
+function euCamposEmpresaHtml(c){
+  return ''+
     '<div class="form-grid">'+
-      '<div class="field full"><label>Razão social da empresa</label><input id="eu-empresa" type="text" value="'+esc(c.nome||'')+'"></div>'+
-      '<div class="field"><label>CNPJ</label><input id="eu-cnpj" type="text" value="'+esc(c.cnpj||'')+'" oninput="PS.maskCnpj(this)"></div>'+
-      '<div class="field"><label>Tipo societário</label><input id="eu-tipo" type="text" value="'+esc(c.tipo||'')+'"></div>'+
-    '</div>') : '';
-  var permissoesEditHtml = (u.role==='colaborador' || u.role==='freelancer') ? (''+
+      '<div class="field full"><label>Razão social da empresa</label><input id="eu-empresa" type="text" value="'+esc(c?c.nome:'')+'"></div>'+
+      '<div class="field"><label>CNPJ</label><input id="eu-cnpj" type="text" value="'+esc(c?c.cnpj:'')+'" oninput="PS.maskCnpj(this)"></div>'+
+      '<div class="field"><label>Tipo societário</label><input id="eu-tipo" type="text" value="'+esc(c?c.tipo:'')+'"></div>'+
+    '</div>';
+}
+function euPermissoesHtml(u){
+  return ''+
     '<div style="display:flex; flex-direction:column; gap:.5rem;">'+
       '<label>Permissões de acesso</label>'+
       '<div class="radio-group">'+PERMISSOES_COLABORADOR.map(function(pm){
         var marcado = !!(u.permissoes && u.permissoes[pm.id]);
         return '<label class="radio-option"><input type="checkbox" id="eu-perm-'+pm.id+'"'+(marcado?' checked':'')+'> '+esc(pm.label)+'</label>';
       }).join('')+'</div>'+
-    '</div>') : '';
+    '</div>';
+}
+function abrirEditarUsuario(id){
+  var u = getUser(id);
+  if(!u) return;
+  var c = u.empresaId ? getCompany(u.empresaId) : null;
+  var empresaSelectHtml = ''+
+    '<div class="field full"><label>Empresa vinculada</label>'+
+      '<select id="eu-empresa-select" onchange="PS.euAtualizarCamposEmpresa()">'+
+        '<option value="">Selecione uma empresa…</option>'+
+        state.companies.map(function(comp){ return '<option value="'+comp.id+'"'+(u.empresaId===comp.id?' selected':'')+'>'+esc(comp.nome)+'</option>'; }).join('')+
+      '</select>'+
+    '</div>';
   var html = ''+
   '<div class="overlay modal-center" id="modal-root" onclick="if(event.target===this) PS.closePanel()">'+
     '<div class="modal-box">'+
       '<div class="panel-head"><h3 style="font-size:1.05rem;">Editar cadastro</h3><button class="close-x" onclick="PS.closePanel()">✕</button></div>'+
       '<div class="panel-body">'+
         '<div id="eu-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
+        '<div class="field full">'+
+          '<label>Perfil de acesso</label>'+
+          '<div class="radio-group">'+
+            '<label class="radio-option"><input type="radio" name="eu-tipo-acesso" value="cliente"'+(u.role==='cliente'?' checked':'')+' onchange="PS.euToggleTipoAcesso()"> Cliente</label>'+
+            '<label class="radio-option"><input type="radio" name="eu-tipo-acesso" value="admin"'+(u.role==='admin'?' checked':'')+' onchange="PS.euToggleTipoAcesso()"> Administrador</label>'+
+            '<label class="radio-option"><input type="radio" name="eu-tipo-acesso" value="colaborador"'+(u.role==='colaborador'?' checked':'')+' onchange="PS.euToggleTipoAcesso()"> Colaborador</label>'+
+            '<label class="radio-option"><input type="radio" name="eu-tipo-acesso" value="freelancer"'+(u.role==='freelancer'?' checked':'')+' onchange="PS.euToggleTipoAcesso()"> Freelancer</label>'+
+          '</div>'+
+        '</div>'+
         '<div class="form-grid">'+
           '<div class="field full"><label>Nome completo <span class="req-mark">*</span></label><input id="eu-nome" type="text" value="'+esc(u.nome||'')+'"></div>'+
           '<div class="field full"><label>Telefone / WhatsApp</label><input id="eu-telefone" type="text" value="'+esc(u.telefone||'')+'" placeholder="(31) 90000-0000" oninput="PS.maskTelefone(this)"></div>'+
         '</div>'+
         '<p style="font-size:.76rem; color:var(--ink-faint);">O e-mail de acesso não pode ser alterado por aqui — entre em contato com o suporte técnico, se necessário.</p>'+
-        camposEmpresaHtml+
-        permissoesEditHtml+
+        '<div id="eu-empresa-wrap" style="display:'+(u.role==='cliente'?'block':'none')+';">'+
+          empresaSelectHtml+
+          '<div id="eu-empresa-campos">'+euCamposEmpresaHtml(c)+'</div>'+
+        '</div>'+
+        '<div id="eu-permissoes-wrap" style="display:'+((u.role==='colaborador'||u.role==='freelancer')?'flex':'none')+'; flex-direction:column; gap:.5rem;">'+
+          euPermissoesHtml(u)+
+        '</div>'+
       '</div>'+
       '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-primary" id="eu-salvar-btn" onclick="PS.salvarEdicaoUsuario(\''+id+'\')">Salvar alterações</button></div>'+
     '</div>'+
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
+function euToggleTipoAcesso(){
+  var tipo = (document.querySelector('input[name="eu-tipo-acesso"]:checked')||{}).value || 'admin';
+  var empresaWrap = document.getElementById('eu-empresa-wrap');
+  var permWrap = document.getElementById('eu-permissoes-wrap');
+  if(empresaWrap) empresaWrap.style.display = tipo==='cliente' ? 'block' : 'none';
+  if(permWrap) permWrap.style.display = (tipo==='colaborador' || tipo==='freelancer') ? 'flex' : 'none';
+}
+function euAtualizarCamposEmpresa(){
+  var sel = document.getElementById('eu-empresa-select');
+  var campos = document.getElementById('eu-empresa-campos');
+  if(!sel || !campos) return;
+  var c = sel.value ? getCompany(sel.value) : null;
+  campos.innerHTML = euCamposEmpresaHtml(c);
+}
 async function salvarEdicaoUsuario(id){
   var u = getUser(id);
   if(!u) return;
   var nome = ((document.getElementById('eu-nome')||{}).value || '').trim();
   var telefone = ((document.getElementById('eu-telefone')||{}).value || '').trim();
+  var novoRole = (document.querySelector('input[name="eu-tipo-acesso"]:checked')||{}).value || u.role;
   var errBox = document.getElementById('eu-erro');
   if(!nome){ if(errBox){ errBox.textContent='Preencha o nome completo.'; errBox.style.display='block'; } return; }
+  if(novoRole==='cliente'){
+    var selEl = document.getElementById('eu-empresa-select');
+    if(!selEl || !selEl.value){ if(errBox){ errBox.textContent='Selecione a empresa vinculada a este cliente.'; errBox.style.display='block'; } return; }
+  }
   var btn = document.getElementById('eu-salvar-btn');
   if(btn) btn.disabled = true;
 
   var snapshotUsuario = JSON.parse(JSON.stringify(u));
   u.nome = nome;
   u.telefone = telefone || '—';
-  if(u.role==='colaborador' || u.role==='freelancer'){
+  u.role = novoRole;
+  if(novoRole!=='admin') u.principal = false;
+  if(novoRole==='colaborador' || novoRole==='freelancer'){
     var permissoesEditadas = {};
     PERMISSOES_COLABORADOR.forEach(function(pm){
       var el = document.getElementById('eu-perm-'+pm.id);
@@ -5157,15 +5203,22 @@ async function salvarEdicaoUsuario(id){
     u.permissoes = permissoesEditadas;
   }
 
-  var c = u.empresaId ? getCompany(u.empresaId) : null;
-  var snapshotEmpresa = c ? JSON.parse(JSON.stringify(c)) : null;
-  if(c){
-    var empresaEl = document.getElementById('eu-empresa');
-    var cnpjEl = document.getElementById('eu-cnpj');
-    var tipoEl = document.getElementById('eu-tipo');
-    if(empresaEl && empresaEl.value.trim()) c.nome = empresaEl.value.trim();
-    if(cnpjEl && cnpjEl.value.trim()) c.cnpj = cnpjEl.value.trim();
-    if(tipoEl && tipoEl.value.trim()) c.tipo = tipoEl.value.trim();
+  var c = null, snapshotEmpresa = null;
+  if(novoRole==='cliente'){
+    var empresaSelecionadaId = (document.getElementById('eu-empresa-select')||{}).value;
+    u.empresaId = empresaSelecionadaId;
+    c = getCompany(empresaSelecionadaId);
+    snapshotEmpresa = c ? JSON.parse(JSON.stringify(c)) : null;
+    if(c){
+      var empresaEl = document.getElementById('eu-empresa');
+      var cnpjEl = document.getElementById('eu-cnpj');
+      var tipoEl = document.getElementById('eu-tipo');
+      if(empresaEl && empresaEl.value.trim()) c.nome = empresaEl.value.trim();
+      if(cnpjEl && cnpjEl.value.trim()) c.cnpj = cnpjEl.value.trim();
+      if(tipoEl && tipoEl.value.trim()) c.tipo = tipoEl.value.trim();
+    }
+  } else {
+    u.empresaId = null;
   }
 
   saveState();
@@ -5322,6 +5375,7 @@ window.PS = {
   avancarEtapa: avancarEtapa, anexarDocumento: anexarDocumento, anexarDocPendente: anexarDocPendente, baixarArquivoReal: baixarArquivoReal,
   openNovoUsuario: openNovoUsuario, criarUsuario: criarUsuario, nuToggleTipoAcesso: nuToggleTipoAcesso, toast: toast,
   abrirEditarUsuario: abrirEditarUsuario, salvarEdicaoUsuario: salvarEdicaoUsuario,
+  euToggleTipoAcesso: euToggleTipoAcesso, euAtualizarCamposEmpresa: euAtualizarCamposEmpresa,
   salvarProtocolo: salvarProtocolo, filtrarProcessosLive: filtrarProcessosLive, limparFiltrosProcessos: limparFiltrosProcessos,
   fabAtualizarSocios: fabAtualizarSocios, fabRegenerarSocios: fabRegenerarSocios, fabNomeSocioChanged: fabNomeSocioChanged,
   fabToggleEstadoCivil: fabToggleEstadoCivil, fabFileChosen: fabFileChosen, fabToggleEndereco: fabToggleEndereco,
