@@ -863,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260929-b7';
+var BUILD_ID = '20260929-b8';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -5007,7 +5007,19 @@ async function confirmarIncluirProcessoManual(){
     var tipo = document.getElementById('manual-empresa-tipo').value.trim() || 'LTDA';
     var divisaoNova = document.getElementById('manual-empresa-divisao').value;
     empresaId = 'c'+Date.now();
-    state.companies.push({id:empresaId, nome:nome, cnpj:cnpj||'—', tipo:tipo, divisao:divisaoNova});
+    var empresaNovaManual = {id:empresaId, nome:nome, cnpj:cnpj||'—', tipo:tipo, divisao:divisaoNova};
+    /* A empresa precisa existir de verdade no Supabase ANTES do processo: o
+       processo grava empresa_id como referência a essa empresa, e sem esta
+       gravação a empresa só existia na memória local do navegador — ao
+       recarregar a página ela sumia, e o processo (com uma empresa_id que não
+       existe de verdade no banco) falhava ao salvar com erro de violação de
+       chave estrangeira (409). */
+    var insEmpresaManual = await supa.from('empresas').insert(empresaParaRow(empresaNovaManual));
+    if(insEmpresaManual.error){
+      if(errBox){ errBox.textContent='Não foi possível criar a empresa: '+insEmpresaManual.error.message; errBox.style.display='block'; }
+      return;
+    }
+    state.companies.push(empresaNovaManual);
   } else {
     empresaId = empresaSel;
   }
