@@ -375,7 +375,7 @@
 (function(){
 "use strict";
 
-var LOGO_DATA_URI = "data:image/png;base64," +
+var LOGO_DATA_URI_LINK_PUBLICO = "data:image/png;base64," +
   "iVBORw0KGgoAAAANSUhEUgAAA4QAAAFWBAMAAADDCU4FAAAA" +
   "MFBMVEUAAAAOFCj4JkL8FRn8DmQNEyf2JUH2JUENEycAAFv/" +
   "W1u4HTB/AACqAFX1JD7/AP+dfwjjAAAAEHRSTlMA/PwFDV9c" +
@@ -596,6 +596,54 @@ var LOGO_DATA_URI = "data:image/png;base64," +
   "p3UhACACVHKkExISEhKSPyz5f+Q+jkVvnKOCAAAAAElFTkSu" +
   "QmCC";
 
+var LOGO_DATA_URI = "data:image/png;base64," +
+  "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";
+
 /* =========================================================
    1) DADOS — Catálogo de serviços (Tabela de Honorários)
    ========================================================= */
@@ -815,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260929-b6';
+var BUILD_ID = '20260929-b7';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1242,7 +1290,14 @@ async function salvarProcessoNoServidor(processo, ehNovo){
         if(!atual.error && atual.data && atual.data.dados && Array.isArray(atual.data.dados.historico)){
           var histServidor = atual.data.dados.historico;
           var histLocal = Array.isArray(processo.historico) ? processo.historico : [];
-          var chaveEntrada = function(h){ return JSON.stringify(h); };
+          /* IMPORTANTE: a chave de comparação NÃO pode ser JSON.stringify(h) —
+             o Postgres reordena as chaves de um objeto ao gravar em jsonb, então
+             a MESMA entrada, depois de ida e volta ao servidor, produz um
+             JSON.stringify diferente do objeto local (só a ordem das chaves
+             muda). Isso fazia esse filtro nunca reconhecer uma entrada do
+             servidor como igual à local, duplicando o histórico inteiro a cada
+             gravação. Por isso montamos a chave manualmente, em ordem fixa. */
+          var chaveEntrada = function(h){ return (h.data||'')+'|'+(h.hora||'')+'|'+(h.texto||'')+'|'+(h.autor||'')+'|'+(h.tipo||''); };
           var chavesServidor = {};
           histServidor.forEach(function(h){ chavesServidor[chaveEntrada(h)] = true; });
           var extrasLocais = histLocal.filter(function(h){ return !chavesServidor[chaveEntrada(h)]; });
@@ -1737,7 +1792,7 @@ function linkPublicoShell(innerHtml, opts){
   '<div class="login-wrap">'+
     '<div class="card" style="max-width:480px; width:100%; padding:2.2rem 2.1rem; display:flex; flex-direction:column; gap:1.1rem;">'+
       '<div style="display:flex; flex-direction:column; align-items:center; gap:.6rem; text-align:center;">'+
-        '<img class="brand-logo" src="'+LOGO_DATA_URI+'" alt="Lucralize" style="height:34px; width:auto;">'+
+        '<img class="brand-logo" src="'+LOGO_DATA_URI_LINK_PUBLICO+'" alt="Lucralize" style="height:34px; width:auto;">'+
         ''+
       '</div>'+
       backBtn+
@@ -1752,7 +1807,7 @@ function linkPublicoShellWide(innerHtml, opts){
   '<div class="lp-wide-wrap" style="min-height:100vh; padding:2rem;">'+
     '<div style="max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:1rem;">'+
       '<div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">'+
-        '<img class="brand-logo" src="'+LOGO_DATA_URI+'" alt="Lucralize" style="height:30px; width:auto;">'+
+        '<img class="brand-logo" src="'+LOGO_DATA_URI_LINK_PUBLICO+'" alt="Lucralize" style="height:30px; width:auto;">'+
         ''+
       '</div>'+
       backBtn+
@@ -4180,8 +4235,10 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
   if(adminMode){
     var bloqueiaConfirmarPagamento = ehFreelancer && p.status==='aguardando_pagamento';
     var etapasP = etapasDoProcesso(p);
+    var naUltimaEtapaAindaEmAndamento = p.status==='em_andamento' && p.etapaAtual===etapasP.length-1;
     var nextLabel = p.status==='cancelado' ? null : (p.status==='aguardando_pagamento' ? 'Confirmar pagamento e iniciar processo'
-      : (p.etapaAtual < etapasP.length-1 ? 'Avançar para: '+esc(etapasP[p.etapaAtual+1]) : null));
+      : (naUltimaEtapaAindaEmAndamento ? 'Concluir: '+esc(etapasP[p.etapaAtual])
+      : (p.etapaAtual < etapasP.length-1 ? 'Avançar para: '+esc(etapasP[p.etapaAtual+1]) : null)));
     adminActions = '<div class="card" style="padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.7rem;">'+
       '<span class="eyebrow">Ações do administrador</span>'+
       (p.status==='cancelado' ? '<div class="pill status-cancelado" style="align-self:flex-start;">Processo cancelado pelo cliente</div>' :
@@ -4458,19 +4515,26 @@ async function executarAvancoEtapa(id, pendenciasTexto){
     p.status='em_andamento'; p.etapaAtual=0;
     p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+etapas[0]+'.'+sufixoPendencias, autor:nomeAutorAtual()});
   } else if(p.etapaAtual < etapas.length-1){
+    /* Ainda existe mais de uma etapa nomeada pela frente: só avança o marcador,
+       sem concluir nada — mesmo que a PRÓXIMA etapa seja a última da linha do
+       tempo. A última etapa precisa aparecer "Em andamento agora" para o
+       cliente antes de ser marcada como concluída (ver bloco abaixo). */
     p.etapaAtual++;
-    var chegouAoFim = p.etapaAtual===etapas.length-1;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:nomeAutorAtual()});
-    if(chegouAoFim){
-      p.status='concluido';
-      /* Antes, se a equipe não tivesse anexado o documento final de verdade,
-         o sistema criava aqui um item fictício ("... - Documento Final.pdf")
-         sem nenhum arquivo real por trás — ele aparecia na tela do cliente como
-         se fosse baixável, mas o download sempre falhava, pois não existe path
-         nenhum associado. Removido: agora, sem anexo real, o cliente vê a
-         mensagem "os documentos finais ficarão disponíveis aqui" normalmente,
-         em vez de um link quebrado. */
-    }
+    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+'.'+sufixoPendencias, autor:nomeAutorAtual()});
+  } else if(p.etapaAtual===etapas.length-1 && p.status!=='concluido'){
+    /* Já estava na última etapa da linha do tempo, "em andamento" — esta é a
+       ação explícita que efetivamente conclui essa etapa e o processo. Chegar
+       nesta última etapa NUNCA conclui sozinho (bloco acima); só este clique a
+       mais, feito deliberadamente pela equipe, conclui. */
+    p.status='concluido';
+    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+' concluído. Processo concluído! 🎉'+sufixoPendencias, autor:nomeAutorAtual()});
+    /* Antes, se a equipe não tivesse anexado o documento final de verdade,
+       o sistema criava aqui um item fictício ("... - Documento Final.pdf")
+       sem nenhum arquivo real por trás — ele aparecia na tela do cliente como
+       se fosse baixável, mas o download sempre falhava, pois não existe path
+       nenhum associado. Removido: agora, sem anexo real, o cliente vê a
+       mensagem "os documentos finais ficarão disponíveis aqui" normalmente,
+       em vez de um link quebrado. */
   }
   saveState();
   closePanel();
@@ -5032,6 +5096,14 @@ function abrirEditarUsuario(id){
       '<div class="field"><label>CNPJ</label><input id="eu-cnpj" type="text" value="'+esc(c.cnpj||'')+'" oninput="PS.maskCnpj(this)"></div>'+
       '<div class="field"><label>Tipo societário</label><input id="eu-tipo" type="text" value="'+esc(c.tipo||'')+'"></div>'+
     '</div>') : '';
+  var permissoesEditHtml = (u.role==='colaborador' || u.role==='freelancer') ? (''+
+    '<div style="display:flex; flex-direction:column; gap:.5rem;">'+
+      '<label>Permissões de acesso</label>'+
+      '<div class="radio-group">'+PERMISSOES_COLABORADOR.map(function(pm){
+        var marcado = !!(u.permissoes && u.permissoes[pm.id]);
+        return '<label class="radio-option"><input type="checkbox" id="eu-perm-'+pm.id+'"'+(marcado?' checked':'')+'> '+esc(pm.label)+'</label>';
+      }).join('')+'</div>'+
+    '</div>') : '';
   var html = ''+
   '<div class="overlay modal-center" id="modal-root" onclick="if(event.target===this) PS.closePanel()">'+
     '<div class="modal-box">'+
@@ -5044,6 +5116,7 @@ function abrirEditarUsuario(id){
         '</div>'+
         '<p style="font-size:.76rem; color:var(--ink-faint);">O e-mail de acesso não pode ser alterado por aqui — entre em contato com o suporte técnico, se necessário.</p>'+
         camposEmpresaHtml+
+        permissoesEditHtml+
       '</div>'+
       '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-primary" id="eu-salvar-btn" onclick="PS.salvarEdicaoUsuario(\''+id+'\')">Salvar alterações</button></div>'+
     '</div>'+
@@ -5063,6 +5136,14 @@ async function salvarEdicaoUsuario(id){
   var snapshotUsuario = JSON.parse(JSON.stringify(u));
   u.nome = nome;
   u.telefone = telefone || '—';
+  if(u.role==='colaborador' || u.role==='freelancer'){
+    var permissoesEditadas = {};
+    PERMISSOES_COLABORADOR.forEach(function(pm){
+      var el = document.getElementById('eu-perm-'+pm.id);
+      permissoesEditadas[pm.id] = !!(el && el.checked);
+    });
+    u.permissoes = permissoesEditadas;
+  }
 
   var c = u.empresaId ? getCompany(u.empresaId) : null;
   var snapshotEmpresa = c ? JSON.parse(JSON.stringify(c)) : null;
