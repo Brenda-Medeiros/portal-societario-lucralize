@@ -863,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260929-b9';
+var BUILD_ID = '20260929-b10';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1602,6 +1602,13 @@ function toast(msg){
 
 function applyTheme(){
   var root = document.documentElement;
+  /* O link público (cliente sem login, ex.: enviado por WhatsApp) precisa
+     sempre aparecer no tema claro, independente do celular/computador de
+     quem está acessando estar no modo escuro do sistema — esse visitante
+     não tem o seletor Claro/Sistema/Escuro (que só aparece pro usuário
+     logado), então sem essa trava ele fica preso no escuro sem saber
+     como mudar. */
+  if(state.view && state.view.name==='link-publico'){ root.setAttribute('data-theme','light'); return; }
   if(state.theme==='dark') root.setAttribute('data-theme','dark');
   else if(state.theme==='light') root.setAttribute('data-theme','light');
   else root.removeAttribute('data-theme');
