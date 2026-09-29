@@ -376,84 +376,266 @@
 "use strict";
 
 var LOGO_DATA_URI = "data:image/png;base64," +
-  "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";
+  "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" +
+  "QmCC";
 
 /* =========================================================
    1) DADOS — Catálogo de serviços (Tabela de Honorários)
    ========================================================= */
 var SERVICES = [
   {
-    id:'abertura-cnpj', categoria:'Ciclo de vida da empresa',
+    id:'abertura-cnpj', categoria:'Abertura e Transformação de CNPJ',
     nome:'Abertura de CNPJ ou Filial',
     resumo:'Constituição de empresa ou abertura de filial: registro na Junta Comercial, CNPJ e enquadramento tributário.',
     precos:[{tipo:'LTDA',valor:810.5},{tipo:'Empresário Individual',valor:810.5},{tipo:'Sociedade de Advocacia',valor:810.5},{tipo:'S/A',valor:2050},{tipo:'Associação e ONG',valor:1621}],
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
-    prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
-    prazoConclusao:{dias:5, confirmado:true, obs:'a partir do recebimento de todas as informações e documentos'},
+    ocultarBoleto:true,
+    prazoInicio:'O início do processo ocorre após o envio de todas as informações e documentos solicitados.',
+    prazoConclusao:{dias:5, confirmado:true, obs:''},
+    prazoConclusaoTextoCustom:'Em até 48 horas',
+    valorTextoCustomHtml:'<p style="margin:0;">A Lucralize oferece <strong>gratuitamente</strong> o serviço de abertura da empresa para novos clientes.</p>'+
+      '<p style="margin:.7rem 0 0;">Os custos das <strong>taxas necessárias para a abertura são de responsabilidade do cliente</strong>, incluindo: <strong>Junta Comercial, certificado digital e Taxa de Localização e Funcionamento</strong>. Os valores das taxas da Junta Comercial e da Prefeitura variam de acordo com o <strong>Estado e Município</strong> onde a empresa será registrada.</p>',
     documentos:['RG e CPF (ou CNH) de todos os sócios','Guia de IPTU do imóvel do CNPJ (apenas para quem optar por não utilizar o endereço fiscal Lucralize)','Definição do objeto social (atividades a exercer)','Definição do capital social e da participação de cada sócio','Endereço da sede (ou autorização de uso do endereço fiscal Lucralize)','E-mail e telefone de contato de cada sócio'],
     etapas:['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
   },
   {
-    id:'transformacao-mei-me', categoria:'Ciclo de vida da empresa',
+    id:'transformacao-mei-me', categoria:'Abertura e Transformação de CNPJ',
     nome:'Transformação de MEI para ME',
     resumo:'Migração do registro de MEI (Microempreendedor Individual) para ME (Microempresa), mantendo o mesmo CNPJ.',
     /* Sem valor de serviço — nem para cliente Tech, nem Contabilidade (pedido da Brenda). */
     precos:null,
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
-    prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
-    prazoConclusao:{dias:5, confirmado:true, obs:'a partir do recebimento de todas as informações e documentos'},
+    ocultarBoleto:true,
+    prazoInicio:'O início do processo ocorre após o envio de todas as informações e documentos solicitados.',
+    prazoConclusao:{dias:5, confirmado:false, obs:'pode variar de acordo com o estado'},
+    prazoConclusaoTextoCustom:'Aproximadamente 5 dias úteis',
+    valorTextoCustomHtml:'<p style="margin:0;">A Lucralize oferece <strong>gratuitamente</strong> o serviço de transformação da empresa para novos clientes.</p>'+
+      '<p style="margin:.7rem 0 0;">Os custos das <strong>taxas necessárias para a transformação são de responsabilidade do cliente</strong>, incluindo: <strong>Junta Comercial, certificado digital e Taxa de Localização e Funcionamento</strong>. Os valores das taxas da Junta Comercial e da Prefeitura variam de acordo com o <strong>Estado e Município</strong> onde a empresa será registrada.</p>',
     documentos:['RG e CPF (ou CNH) de todos os sócios','Guia de IPTU do imóvel do CNPJ (apenas para quem optar por não utilizar o endereço fiscal Lucralize)','Definição do objeto social (atividades a exercer)','Definição do capital social e da participação de cada sócio','Endereço da sede (ou autorização de uso do endereço fiscal Lucralize)','E-mail e telefone de contato de cada sócio'],
     etapas:['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
   },
   {
-    id:'alteracao-simples', categoria:'Ciclo de vida da empresa',
+    id:'alteracao-simples', categoria:'Alterações e Baixa da Empresa',
     nome:'Alteração Contratual — Simples',
     resumo:'Mudanças de rotina no contrato social: endereço, sócios, atividades ou transformação de natureza jurídica.',
+    detalheTextoCustomHtml:'Além do valor cobrado na tabela abaixo pela Lucralize para realizar o serviço, também há a taxa da Junta Comercial, que varia de acordo com o estado, o porte da empresa e o tipo de alteração realizada.',
     precos:[{tipo:'LTDA',valor:810.5},{tipo:'Empresário Individual',valor:810.5},{tipo:'Sociedade de Advocacia',valor:810.5},{tipo:'Transformação de Natureza Jurídica',valor:810.5},{tipo:'S/A',valor:2050},{tipo:'Associação e ONG',valor:1621}],
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
     prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
@@ -462,9 +644,10 @@ var SERVICES = [
     etapas:['Pagamento confirmado e dados recebidos','Documentação em análise','Alteração protocolada na Junta Comercial','Aguardando deferimento do órgão','Concluído — documentos disponíveis']
   },
   {
-    id:'alteracao-complexa', categoria:'Ciclo de vida da empresa',
+    id:'alteracao-complexa', categoria:'Alterações e Baixa da Empresa',
     nome:'Alteração Contratual — Complexa',
     resumo:'Operações societárias que exigem elaboração de minuta específica: incorporação, cisão, cessão de quotas e afins.',
+    detalheTextoCustomHtml:'Além do valor cobrado na tabela abaixo pela Lucralize para realizar o serviço, também há a taxa da Junta Comercial, que varia de acordo com o estado, o porte da empresa e o tipo de alteração realizada.',
     precos:[{tipo:'LTDA',valor:1621},{tipo:'Empresário Individual',valor:1621},{tipo:'Sociedade de Advocacia',valor:1621},{tipo:'Transformação de Natureza Jurídica',valor:1621},{tipo:'S/A',valor:2050},{tipo:'Associação e ONG',valor:1621}],
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
     prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
@@ -473,13 +656,13 @@ var SERVICES = [
     etapas:['Pagamento confirmado e dados recebidos','Documentação em análise','Elaboração da minuta de alteração','Assinatura dos sócios','Protocolado na Junta Comercial','Concluído — documentos disponíveis']
   },
   {
-    id:'baixa-cnpj', categoria:'Ciclo de vida da empresa',
+    id:'baixa-cnpj', categoria:'Alterações e Baixa da Empresa',
     nome:'Baixa de CNPJ',
     resumo:'Encerramento formal da empresa junto à Junta Comercial e às esferas Federal, Estadual e Municipal.',
     precos:[{tipo:'LTDA',valor:810.5},{tipo:'Empresário Individual',valor:810.5},{tipo:'Sociedade de Advocacia',valor:810.5},{tipo:'S/A',valor:2050},{tipo:'Associação e ONG',valor:1621}],
     prazoBoleto:{texto:'Em até 48 horas', confirmado:true},
     prazoInicio:'Início em até 24 horas após a confirmação do pagamento e o envio de todas as informações.',
-    prazoConclusao:{dias:20, confirmado:false, obs:'estimado — depende da emissão de certidões pelos órgãos'},
+    prazoConclusao:{dias:5, confirmado:false, obs:'estimado — depende da emissão de certidões pelos órgãos'},
     documentos:['Contrato social consolidado','Certidões negativas de débitos (Federal, Estadual e Municipal)','Comprovação de encerramento das atividades','RG e CPF dos sócios','Procuração (quando aplicável)'],
     etapas:['Pagamento confirmado e dados recebidos','Levantamento de certidões e pendências','Baixa protocolada na Junta Comercial','Baixa nas esferas Estadual e Municipal','Concluído — CNPJ baixado']
   },
@@ -598,7 +781,7 @@ var SERVICES = [
 ];
 var SERVICE_MAP = {};
 SERVICES.forEach(function(s){ SERVICE_MAP[s.id]=s; });
-var CATEGORY_ORDER = ['Ciclo de vida da empresa','Inscrições e credenciamentos','Licenças e representação','Regularização e comércio exterior'];
+var CATEGORY_ORDER = ['Abertura e Transformação de CNPJ','Alterações e Baixa da Empresa','Inscrições e credenciamentos','Licenças e representação','Regularização e comércio exterior'];
 
 /* =========================================================
    2) DADOS — Empresas, usuários e processos
@@ -611,8 +794,7 @@ function seedState(){
     view:{ name:'carregando' },
     visitante:null, /* {nome, telefone, email} — contato de quem usa o link público sem login */
     visitanteTipo:null, /* tipo societário informado pelo visitante no link público, para exibir valores exatos */
-    visitanteDivisao:null, /* 'tech' | 'contabilidade' — qual Lucralize o visitante do link público selecionou */
-    visitanteCnpjStatus:null, /* 'possui' | 'nao_possui' — se o visitante do link público já tem CNPJ */
+    visitanteFluxo:null, /* 'abertura_transformacao' | 'outros' — o que o visitante do link público escolheu na tela inicial */
     nextOrdemSeq:1,
     companies:[],
     users:[],
@@ -633,7 +815,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260925-b5';
+var BUILD_ID = '20260929-b6';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -864,10 +1046,11 @@ function mostrarErroLogin(msg){
 function fmtMoney(v){
   return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 }
-function avisoUrgenciaHtml(checkboxId, onchangeCall){
+function avisoUrgenciaHtml(checkboxId, onchangeCall, omitirTaxaUrgencia){
+  var textoTaxa = omitirTaxaUrgencia ? '' : 'será cobrada a <strong class="txt-danger-strong">taxa de urgência no valor de R$ 200,00</strong>, e os ';
   return '<div class="q-block" style="border-color:var(--danger); margin-top:.2rem;">'+
     '<div class="obs-note" style="background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);">'+
-      'Caso seja necessário <strong class="txt-danger-strong">reiniciar um processo já iniciado</strong> devido a novas solicitações do cliente, será cobrada a <strong class="txt-danger-strong">taxa de urgência no valor de R$ 200,00</strong>, e os <strong class="txt-danger-strong">prazos de entrega serão alterados</strong> em função da necessidade de reiniciar as etapas do processo. Em caso de <strong class="txt-danger-strong">desistência de um processo já iniciado, as taxas pagas não são reembolsáveis e o valor do serviço não é devolvido</strong>.'+
+      'Caso seja necessário <strong class="txt-danger-strong">reiniciar um processo já iniciado</strong> devido a novas solicitações do cliente, '+textoTaxa+'<strong class="txt-danger-strong">prazos de entrega serão alterados</strong> em função da necessidade de reiniciar as etapas do processo. Em caso de <strong class="txt-danger-strong">desistência de um processo já iniciado, as taxas pagas não são reembolsáveis e o valor do serviço não é devolvido</strong>.'+
     '</div>'+
     '<label class="radio-option" style="align-items:center;"><input type="checkbox" id="'+checkboxId+'" onchange="'+onchangeCall+'"> <strong>Estou ciente!</strong><span class="req-mark">*</span></label>'+
   '</div>';
@@ -876,6 +1059,16 @@ function fmtDate(iso){
   if(!iso) return '—';
   var p = iso.split('-');
   return p[2]+'/'+p[1]+'/'+p[0];
+}
+function fmtDataHora(iso){
+  if(!iso) return 'Nunca acessou';
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) return 'Nunca acessou';
+  var dd = String(d.getDate()).padStart(2,'0');
+  var mm = String(d.getMonth()+1).padStart(2,'0');
+  var hh = String(d.getHours()).padStart(2,'0');
+  var mi = String(d.getMinutes()).padStart(2,'0');
+  return dd+'/'+mm+'/'+d.getFullYear()+' às '+hh+':'+mi;
 }
 function todayISO(){
   var d = new Date();
@@ -896,7 +1089,37 @@ function nowHM(){
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 function autorLabel(autor){
-  return autor==='cliente' ? 'Cliente' : 'Lucralize';
+  if(autor==='cliente') return 'Cliente';
+  if(!autor || autor==='lucralize') return 'Lucralize';
+  return autor;
+}
+function nomeAutorAtual(){
+  var u = currentUser();
+  return (u && u.nome) ? u.nome : 'Lucralize';
+}
+/* ---------- Máscaras de preenchimento (telefone, CNPJ, somente dígitos) ---------- */
+function maskTelefone(el){
+  var d = (el.value||'').replace(/\D/g,'').slice(0,11);
+  var v = '';
+  if(d.length>0) v = '('+d.slice(0,2);
+  if(d.length>=2) v += ') ';
+  if(d.length>2) v += d.length>10 ? d.slice(2,7) : d.slice(2,6);
+  if(d.length>6) v += '-' + (d.length>10 ? d.slice(7,11) : d.slice(6,10));
+  el.value = v;
+}
+function maskCnpj(el){
+  var d = (el.value||'').replace(/\D/g,'').slice(0,14);
+  el.value = d.replace(/^(\d{0,2})(\d{0,3})(\d{0,3})(\d{0,4})(\d{0,2}).*/, function(_, a,b,c,e,f){
+    var out = a;
+    if(b) out += '.'+b;
+    if(c) out += '.'+c;
+    if(e) out += '/'+e;
+    if(f) out += '-'+f;
+    return out;
+  });
+}
+function maskDigitos(el, max){
+  el.value = (el.value||'').replace(/\D/g,'').slice(0, max||20);
 }
 async function gerarOrdemServico(){
   /* número gerado de forma atômica no banco (sequence do Postgres), para que
@@ -1060,7 +1283,7 @@ async function finalizarNovoProcesso(processo, toastLogado){
   } else {
     processo.empresaId = null;
     processo.visitante = state.visitante ? {nome:state.visitante.nome, telefone:state.visitante.telefone, email:state.visitante.email} : null;
-    processo.divisao = state.visitanteDivisao || null;
+    processo.divisao = null;
     processo.solicitanteContato = processo.visitante ? {telefone: processo.visitante.telefone||'', email: processo.visitante.email||''} : null;
   }
 
@@ -1187,10 +1410,14 @@ function etapasDoProcesso(p){
     return inserirAnaliseJunta(lista);
   }
   if(p.servicoId==='abertura-cnpj' || p.servicoId==='transformacao-mei-me'){
-    var usaEnderecoLucralize = !!(p.formularioAbertura && p.formularioAbertura.enderecoFiscalLucralize);
-    var lista2 = ['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital'];
+    /* Certificado Digital e Licenciamento e Alvará são controle interno (ver
+       itensInternosDoProcesso) e não aparecem mais nesta lista visível ao
+       cliente. A abertura conclui em "Inscrição do CNPJ e Regime Tributário";
+       a transformação (que não tem essa etapa) conclui em "Em análise pela
+       Junta Comercial". */
+    var lista2 = ['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial'];
     lista2 = inserirAnaliseJunta(lista2);
-    if(usaEnderecoLucralize) lista2.push('Licenciamento e Alvará');
+    if(p.servicoId==='abertura-cnpj') lista2.push('Inscrição do CNPJ e Regime Tributário');
     return lista2;
   }
   return s.etapas || [];
@@ -1209,7 +1436,7 @@ function itensInternosDoProcesso(p){
     return ['Licenciamento e Alvará'];
   }
   if(p.servicoId==='abertura-cnpj' || p.servicoId==='transformacao-mei-me'){
-    return ['Portal Nacional','Acesso à Prefeitura'];
+    return ['Certificado Digital','Licenciamento e Alvará','Portal Nacional','Acesso à Prefeitura'];
   }
   return [];
 }
@@ -1270,6 +1497,7 @@ async function login(userId){
     return;
   }
   var u = currentUser();
+  supa.rpc('registrar_ultimo_acesso').then(function(r){ if(r.error) console.warn('Registrar último acesso:', r.error.message); });
   var pendente = null;
   try{ pendente = localStorage.getItem(TROCAR_SENHA_PENDENTE_KEY); }catch(e){}
   if(pendente===u.id){
@@ -1534,14 +1762,14 @@ function linkPublicoShellWide(innerHtml, opts){
 }
 function goLinkPublico(){ go({name:'link-publico', etapa:'divisao'}); }
 function linkPublicoSair(){
-  state.visitante = null; state.visitanteTipo = null; state.visitanteDivisao = null; state.visitanteCnpjStatus = null;
+  state.visitante = null; state.visitanteTipo = null; state.visitanteFluxo = null;
   saveState(); go({name:'login'});
 }
 function renderLinkPublico(){
   var view = state.view || {};
   var etapa = view.etapa || 'divisao';
-  if(etapa==='cnpj-status') return renderLinkPublicoCnpjStatus();
-  if(etapa==='opcoes') return renderLinkPublicoOpcoes();
+  if(etapa==='cnpj-status') return renderLinkPublicoDivisao();
+  if(etapa==='opcoes') return renderLinkPublicoDivisao();
   if(etapa==='gate') return renderLinkPublicoGate();
   if(etapa==='acompanhar') return renderLinkPublicoAcompanhar();
   if(etapa==='catalogo') return renderLinkPublicoCatalogo();
@@ -1553,42 +1781,22 @@ function renderLinkPublicoDivisao(){
   return linkPublicoShell(''+
     '<div>'+
       '<h2 style="font-size:1.25rem;">Bem-vindo!</h2>'+
-      '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">Você é cliente de qual Lucralize?</p>'+
+      '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">O que você deseja fazer?</p>'+
     '</div>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoSetDivisao(\'tech\')">'+
-      '<strong style="font-size:1.02rem;">Cliente Lucralize Tech</strong>'+
+    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoIniciarFluxo(\'abertura_transformacao\')">'+
+      '<strong style="font-size:1.02rem;">Abertura ou Transformação de CNPJ</strong>'+
     '</button>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoSetDivisao(\'contabilidade\')">'+
-      '<strong style="font-size:1.02rem;">Cliente Lucralize Contabilidade</strong>'+
+    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoIniciarFluxo(\'outros\')">'+
+      '<strong style="font-size:1.02rem;">Outros Processos Societários</strong>'+
     '</button>'+
     '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.go({name:\'link-publico\', etapa:\'acompanhar\'})">'+
-      '<span class="eyebrow">Já solicitei um serviço</span>'+
       '<strong style="font-size:1.02rem;">Acompanhar andamento do processo</strong>'+
-      '<span style="font-size:.82rem; color:var(--ink-soft);">Consulte o status usando o número da ordem de serviço, sem precisar informar a divisão.</span>'+
+      '<span style="font-size:.82rem; color:var(--ink-soft);">Consulte o status usando o número da ordem de serviço.</span>'+
     '</button>'
   , {backOnclick:"PS.linkPublicoSair()", backLabel:'← Voltar para o login'});
 }
-function linkPublicoSetDivisao(divisao){
-  state.visitanteDivisao = divisao;
-  saveState();
-  go({name:'link-publico', etapa:'cnpj-status'});
-}
-function renderLinkPublicoCnpjStatus(){
-  return linkPublicoShell(''+
-    '<div>'+
-      '<h2 style="font-size:1.25rem;">Sobre sua empresa</h2>'+
-      '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">Você já possui CNPJ?</p>'+
-    '</div>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoSetCnpjStatus(\'possui\')">'+
-      '<strong style="font-size:1.02rem;">Já possuo CNPJ</strong>'+
-    '</button>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.linkPublicoSetCnpjStatus(\'nao_possui\')">'+
-      '<strong style="font-size:1.02rem;">Ainda não possuo CNPJ</strong>'+
-    '</button>'
-  , {backOnclick:"PS.go({name:'link-publico', etapa:'divisao'})"});
-}
-function linkPublicoSetCnpjStatus(status){
-  state.visitanteCnpjStatus = status;
+function linkPublicoIniciarFluxo(fluxo){
+  state.visitanteFluxo = fluxo;
   saveState();
   go({name:'link-publico', etapa:'gate'});
 }
@@ -1601,10 +1809,10 @@ function renderLinkPublicoGate(){
     '</div>'+
     '<div id="lp-gate-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
     '<div class="field"><label>Nome completo <span class="req-mark">*</span></label><input type="text" id="lp-nome" value="'+esc(v.nome||'')+'" placeholder="Seu nome completo"></div>'+
-    '<div class="field"><label>Telefone de contato <span class="req-mark">*</span></label><input type="text" id="lp-telefone" value="'+esc(v.telefone||'')+'" placeholder="(31) 90000-0000"></div>'+
+    '<div class="field"><label>Telefone de contato <span class="req-mark">*</span></label><input type="text" id="lp-telefone" value="'+esc(v.telefone||'')+'" placeholder="(31) 90000-0000" oninput="PS.maskTelefone(this)"></div>'+
     '<div class="field"><label>E-mail <span class="req-mark">*</span></label><input type="email" id="lp-email" value="'+esc(v.email||'')+'" placeholder="seuemail@exemplo.com"></div>'+
     '<button class="btn btn-primary btn-block" onclick="PS.linkPublicoSubmitGate()">Continuar</button>'
-  , {backOnclick:"PS.go({name:'link-publico', etapa:'cnpj-status'})"});
+  , {backOnclick:"PS.go({name:'link-publico', etapa:'divisao'})"});
 }
 function linkPublicoSubmitGate(){
   var nomeEl = document.getElementById('lp-nome'), telEl = document.getElementById('lp-telefone'), emailEl = document.getElementById('lp-email');
@@ -1618,24 +1826,6 @@ function linkPublicoSubmitGate(){
   state.visitante = {nome:nome, telefone:telefone, email:email};
   saveState();
   go({name:'link-publico', etapa:'catalogo'});
-}
-function renderLinkPublicoOpcoes(){
-  return linkPublicoShell(''+
-    '<div>'+
-      '<h2 style="font-size:1.25rem;">Solicitar ou acompanhar um processo</h2>'+
-      '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">O que você deseja fazer?</p>'+
-    '</div>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.go({name:\'link-publico\', etapa:\'acompanhar\'})">'+
-      '<span class="eyebrow">Já solicitei um serviço</span>'+
-      '<strong style="font-size:1.02rem;">Acompanhar andamento do processo</strong>'+
-      '<span style="font-size:.82rem; color:var(--ink-soft);">Consulte o status usando o número da ordem de serviço.</span>'+
-    '</button>'+
-    '<button class="card" style="padding:1.2rem 1.3rem; text-align:left; display:flex; flex-direction:column; gap:.3rem; cursor:pointer; border:1px solid var(--border);" onclick="PS.go({name:\'link-publico\', etapa:\'gate\'})">'+
-      '<span class="eyebrow">Quero contratar</span>'+
-      '<strong style="font-size:1.02rem;">Solicitar Serviço Societário</strong>'+
-      '<span style="font-size:.82rem; color:var(--ink-soft);">Veja o catálogo de serviços e envie sua solicitação.</span>'+
-    '</button>'
-  , {backOnclick:"PS.go({name:'link-publico', etapa:'cnpj-status'})"});
 }
 function renderLinkPublicoAcompanhar(){
   return linkPublicoShell(''+
@@ -1700,7 +1890,7 @@ async function linkPublicoAcompanharBuscar(){
 }
 var TIPOS_SOCIETARIOS_PUBLICO = ['LTDA','Empresário Individual','Sociedade de Advocacia','S/A','Associação e ONG'];
 function renderLinkPublicoCatalogo(){
-  if(state.visitanteCnpjStatus === 'nao_possui'){
+  if(state.visitanteFluxo === 'abertura_transformacao'){
     return renderLinkPublicoCatalogoAbertura();
   }
   var tipoAtual = state.visitanteTipo || '';
@@ -1715,9 +1905,9 @@ function renderLinkPublicoCatalogo(){
       '</div>'+
     '</div>';
   return linkPublicoShellWide(''+
-    
+
     tipoSelectorHtml+
-    renderCatalogo(effectiveCompanyForPricing(), false)
+    renderCatalogo(effectiveCompanyForPricing(), false, ['Abertura e Transformação de CNPJ'])
   , {backOnclick:"PS.go({name:'link-publico', etapa:'gate'})"});
 }
 function linkPublicoSetTipo(tipo){
@@ -1726,20 +1916,16 @@ function linkPublicoSetTipo(tipo){
   render();
 }
 function renderLinkPublicoCatalogoAbertura(){
-  var ids = ['abertura-cnpj'];
+  var ids = ['abertura-cnpj','transformacao-mei-me'];
   var cards = ids.map(function(id){
     var s = SERVICE_MAP[id];
     return '<button class="card svc-card" onclick="PS.openService(\''+s.id+'\')">'+
-      '<span class="eyebrow">'+esc(s.categoria)+'</span>'+
       '<span class="nome">'+esc(servicoNomeSemFilial(s))+'</span>'+
-      '<span class="resumo">'+esc(servicoResumoSemFilial(s))+'</span>'+
-      '<span class="preco-row"><span style="font-size:.78rem; color:var(--ink-soft);">Consulte com a equipe</span><span style="font-size:.78rem; color:var(--primary); font-weight:600;">Ver detalhes</span></span>'+
     '</button>';
   }).join('');
   return linkPublicoShell(''+
     '<div>'+
       '<h2 style="font-size:1.25rem;">Solicitar Serviço Societário</h2>'+
-      '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">Como você ainda não possui CNPJ, disponibilizamos o serviço de abertura de empresa. Os valores das taxas das juntas comerciais serão informados pela equipe de acordo com o tipo societário da empresa e o estado em que o CNPJ será registrado.</p>'+
     '</div>'+
     cards
   , {backOnclick:"PS.go({name:'link-publico', etapa:'gate'})"});
@@ -1866,8 +2052,9 @@ function renderClienteProcessos(u){
 }
 
 /* ---------- CATÁLOGO (cliente ou admin, admin=readonly) ---------- */
-function renderCatalogo(company, adminMode){
-  var blocks = CATEGORY_ORDER.map(function(cat){
+function renderCatalogo(company, adminMode, excludeCategorias){
+  var cats = excludeCategorias ? CATEGORY_ORDER.filter(function(c){return excludeCategorias.indexOf(c)===-1;}) : CATEGORY_ORDER;
+  var blocks = cats.map(function(cat){
     var items = SERVICES.filter(function(s){return s.categoria===cat;});
     var cards = items.map(function(s){
       var price = !s.precos ? null : (company ? priceForCompany(s, company) : (s.precos.length===1 ? s.precos[0] : null));
@@ -1891,7 +2078,11 @@ function company_or_generic(company){ return company ? company.tipo : 'atividade
 var SERVICO_SEM_FILIAL_OVERRIDES = {
   'abertura-cnpj': {
     nome: 'Abertura de CNPJ',
-    resumo: 'Constituição da sua empresa: registro na Junta Comercial, CNPJ e enquadramento tributário.'
+    resumo: ''
+  },
+  'transformacao-mei-me': {
+    nome: 'Transformação de MEI para ME',
+    resumo: ''
   }
 };
 function servicoNomeSemFilial(s){
@@ -1983,7 +2174,7 @@ function openService(serviceId){
   var s = SERVICE_MAP[serviceId];
   var u = currentUser();
   var admin = isAdmin();
-  var semValores = !admin && !u && state.visitanteCnpjStatus==='nao_possui';
+  var semValores = !admin && !u && state.visitanteFluxo==='abertura_transformacao';
   var company = (admin || semValores) ? null : effectiveCompanyForPricing();
   var myPrice = (company && s.precos) ? priceForCompany(s, company) : null;
 
@@ -2005,7 +2196,11 @@ function openService(serviceId){
 
   var actionBtn = admin ? '' : '<button class="btn btn-primary btn-block" onclick="PS.openSolicitarForm(\''+s.id+'\')">Solicitar este serviço</button>';
 
-  var valorCardHtml = !s.precos ? (''+
+  var valorCardHtml = s.valorTextoCustomHtml ? (''+
+    '<div class="card" style="padding:1.1rem 1.2rem;">'+
+      '<span class="eyebrow">Valor</span>'+
+      '<div style="font-size:.88rem; color:var(--ink-soft); margin-top:.5rem; line-height:1.6;">'+s.valorTextoCustomHtml+'</div>'+
+    '</div>') : !s.precos ? (''+
     '<div class="card" style="padding:1.1rem 1.2rem;">'+
       '<span class="eyebrow">Valor</span>'+
       '<p style="font-size:.88rem; color:var(--ink-soft); margin-top:.5rem; line-height:1.5;">Sem valor de serviço — este processo não tem cobrança.</p>'+
@@ -2031,14 +2226,14 @@ function openService(serviceId){
         '<button class="close-x" onclick="PS.closePanel()">✕</button>'+
       '</div>'+
       '<div class="panel-body">'+
-        '<p style="color:var(--ink-soft); font-size:.9rem; line-height:1.5;">'+esc(semValores ? servicoResumoSemFilial(s) : s.resumo)+'</p>'+
+        '<p style="color:var(--ink-soft); font-size:.9rem; line-height:1.5;">'+(s.detalheTextoCustomHtml ? esc(s.detalheTextoCustomHtml) : esc(semValores ? servicoResumoSemFilial(s) : s.resumo))+'</p>'+
 
         valorCardHtml+
 
         '<div class="info-grid">'+
-          '<div class="info-block"><span class="lbl">Envio do boleto '+boletoTag+'</span><span class="val">'+(s.prazoBoleto.texto || ('Em até '+s.prazoBoleto.dias+' dia'+(s.prazoBoleto.dias>1?'s':'')+' útil'+(s.prazoBoleto.dias>1?'eis':'')))+'</span></div>'+
+          (s.ocultarBoleto ? '' : '<div class="info-block"><span class="lbl">Envio do boleto '+boletoTag+'</span><span class="val">'+(s.prazoBoleto.texto || ('Em até '+s.prazoBoleto.dias+' dia'+(s.prazoBoleto.dias>1?'s':'')+' útil'+(s.prazoBoleto.dias>1?'eis':'')))+'</span></div>')+
           '<div class="info-block"><span class="lbl">Início do processo</span><span class="val" style="font-weight:500; font-size:.82rem;">'+esc(s.prazoInicio)+'</span></div>'+
-          '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Prazo estimado de conclusão '+conclusaoTag+'</span><span class="val">Até '+s.prazoConclusao.dias+' dias úteis'+(s.prazoConclusao.obs?' <span style="font-weight:500; color:var(--ink-soft); font-size:.78rem;">('+esc(s.prazoConclusao.obs)+')</span>':'')+'</span></div>'+
+          '<div class="info-block full" style="grid-column:1/-1;"><span class="lbl">Prazo estimado de conclusão '+conclusaoTag+'</span><span class="val">'+(s.prazoConclusaoTextoCustom || ('Até '+s.prazoConclusao.dias+' dias úteis'))+(s.prazoConclusao.obs?' <span style="font-weight:500; color:var(--ink-soft); font-size:.78rem;">('+esc(s.prazoConclusao.obs)+')</span>':'')+'</span></div>'+
           parcelado+
         '</div>'+
 
@@ -2205,8 +2400,8 @@ function fabSocioBlockHtml(idx, data){
             '<input type="file" id="fab-s'+idx+'-ir-2026" style="display:none;" onchange="PS.fabFileChosen(\'fab-s'+idx+'-ir-2026\')"></div>'+
         '</div>'+
         '<div id="fab-s'+idx+'-ir-numero-wrap" style="display:'+(data.irModo==='numero'?'flex':'none')+'; flex-direction:column; gap:.6rem; margin-top:.5rem;">'+
-          '<div class="field"><label>Número da declaração — ano-calendário 2025</label><input type="text" id="fab-s'+idx+'-ir-numero-2025" value="'+esc(data.irNumero2025||'')+'" placeholder="Número da declaração (2025)"></div>'+
-          '<div class="field"><label>Número da declaração — ano-calendário 2026</label><input type="text" id="fab-s'+idx+'-ir-numero-2026" value="'+esc(data.irNumero2026||'')+'" placeholder="Número da declaração (2026)"></div>'+
+          '<div class="field"><label>Número da declaração — ano-calendário 2025</label><input type="text" inputmode="numeric" id="fab-s'+idx+'-ir-numero-2025" value="'+esc(data.irNumero2025||'')+'" placeholder="Número da declaração (2025)" oninput="PS.maskDigitos(this,12)"></div>'+
+          '<div class="field"><label>Número da declaração — ano-calendário 2026</label><input type="text" inputmode="numeric" id="fab-s'+idx+'-ir-numero-2026" value="'+esc(data.irNumero2026||'')+'" placeholder="Número da declaração (2026)" oninput="PS.maskDigitos(this,12)"></div>'+
         '</div>'+
       '</div>'+
     '</div>'+
@@ -2334,29 +2529,21 @@ function fabToggleNatureza(){
   var obs = document.getElementById('fab-q10-obs-ei');
   if(obs) obs.style.display = (radio && radio.value==='EI') ? 'block' : 'none';
 }
-function fabToggleTelefone(){
-  var radio = document.querySelector('input[name="fab-q13"]:checked');
-  var wrap = document.getElementById('fab-q13-tel-wrap');
-  if(wrap) wrap.style.display = (radio && radio.value==='pessoal') ? 'flex' : 'none';
-}
-function fabToggleEmail(){
-  var radio = document.querySelector('input[name="fab-q14"]:checked');
-  var wrap = document.getElementById('fab-q14-email-wrap');
-  if(wrap) wrap.style.display = (radio && radio.value==='pessoal') ? 'flex' : 'none';
-}
 function fabToggleCiente(){
   var chk1 = document.getElementById('fab-q15-ciente');
   var chk2 = document.getElementById('fab-urgencia-ciente');
+  var chk3 = document.getElementById('fab-q13-ciente');
   var btn = document.getElementById('fab-submit-btn');
-  if(btn) btn.disabled = !(chk1 && chk1.checked && chk2 && chk2.checked);
+  if(btn) btn.disabled = !(chk1 && chk1.checked && chk2 && chk2.checked && (!chk3 || chk3.checked));
 }
 
 function openSolicitarFormAbertura(variant){
   variant = variant || 'abertura';
   var isTransf = variant === 'transformacao';
   var s = SERVICE_MAP[isTransf ? 'transformacao-mei-me' : 'abertura-cnpj'];
-  var semValoresCtx = !isAdmin() && !currentUser() && state.visitanteCnpjStatus==='nao_possui';
+  var semValoresCtx = !isAdmin() && !currentUser() && state.visitanteFluxo==='abertura_transformacao';
   var nomeFormulario = semValoresCtx ? servicoNomeSemFilial(s) : s.nome;
+  var vGate = state.visitante || {};
   closePanel();
 
   var qn = 0;
@@ -2364,12 +2551,12 @@ function openSolicitarFormAbertura(variant){
 
   var q1 = Q('Nome completo', ''+
     '<p style="font-size:.82rem; color:var(--ink-soft);">Preencha o nome completo de quem está preenchendo o formulário.</p>'+
-    '<div class="field"><label>Nome completo <span class="req-mark">*</span></label><input type="text" id="fab-q1-nome" placeholder="Seu nome completo"></div>');
+    '<div class="field"><label>Nome completo <span class="req-mark">*</span></label><input type="text" id="fab-q1-nome" value="'+esc(vGate.nome||'')+'" placeholder="Seu nome completo"></div>');
 
   var qTransf = isTransf ? Q('Dados da empresa que já possui (MEI)', ''+
     '<div class="form-grid">'+
       '<div class="field"><label>Razão Social (nome empresarial) - ATUAL <span class="req-mark">*</span></label><input type="text" id="fab-transf-razaoatual" placeholder="Razão social atual, como MEI"></div>'+
-      '<div class="field"><label>Número do CNPJ <span class="req-mark">*</span></label><input type="text" id="fab-transf-cnpj" placeholder="00.000.000/0000-00"></div>'+
+      '<div class="field"><label>Número do CNPJ <span class="req-mark">*</span></label><input type="text" id="fab-transf-cnpj" placeholder="00.000.000/0000-00" oninput="PS.maskCnpj(this)"></div>'+
     '</div>') : '';
 
   var q2 = Q('A empresa terá outros sócios além de você?', ''+
@@ -2433,6 +2620,7 @@ function openSolicitarFormAbertura(variant){
     '<div class="radio-group">'+
       '<label class="radio-option"><input type="radio" name="fab-q10" value="LTDA" checked onchange="PS.fabToggleNatureza()"> LTDA - Sociedade Empresária Limitada (1 ou mais sócios)</label>'+
       '<label class="radio-option"><input type="radio" name="fab-q10" value="EI" onchange="PS.fabToggleNatureza()"> EI - Empresário (Individual)</label>'+
+      '<label class="radio-option"><input type="radio" name="fab-q10" value="SA" onchange="PS.fabToggleNatureza()"> S/A - Sociedade Anônima</label>'+
     '</div>'+
     '<div class="obs-note" id="fab-q10-obs-ei" style="display:none;">O empresário assume completamente a responsabilidade pelas obrigações do negócio e que os <strong>"seus bens pessoais podem ser usados em casos de inadimplência ou dívidas do CNPJ perante a órgãos e terceiros. O patrimônio pessoal do empresário fica atrelado ao do negócio, podendo ser usado para quitar dívidas"</strong>. Isso significa que, em caso de <strong>"dívidas da empresa, seus bens pessoais, como carros, imóveis e investimentos, podem ser usados para quitar as pendências financeiras"</strong>.</div>');
 
@@ -2451,27 +2639,15 @@ function openSolicitarFormAbertura(variant){
       '<label class="radio-option"><input type="radio" name="fab-q12" value="nao_sei"> Não sei</label>'+
     '</div>');
 
-  var q13 = Q('Telefone que será incluído no cartão CNPJ?', ''+
-    '<div class="obs-note">Esta informação aparecerá no cartão CNPJ da empresa ao ser consultada na Receita Federal ficando visível para qualquer pessoa.</div>'+
-    '<div class="radio-group">'+
-      '<label class="radio-option"><input type="radio" name="fab-q13" value="pessoal" onchange="PS.fabToggleTelefone()"> Meu telefone pessoal</label>'+
-      '<label class="radio-option"><input type="radio" name="fab-q13" value="lucralize" onchange="PS.fabToggleTelefone()"> Telefone da Lucralize</label>'+
-    '</div>'+
-    '<div class="field" id="fab-q13-tel-wrap" style="display:none;"><label>Telefone pessoal <span class="req-mark">*</span></label><input type="text" id="fab-q13-tel" placeholder="(31) 90000-0000"></div>');
-
-  var q14 = Q('E-mail que deseja incluir no cartão CNPJ?', ''+
-    '<div class="obs-note">Esta informação aparecerá no cartão CNPJ da empresa ao ser consultada na Receita Federal ficando visível para qualquer pessoa.</div>'+
-    '<div class="radio-group">'+
-      '<label class="radio-option"><input type="radio" name="fab-q14" value="pessoal" onchange="PS.fabToggleEmail()"> Meu e-mail pessoal</label>'+
-      '<label class="radio-option"><input type="radio" name="fab-q14" value="lucralize" onchange="PS.fabToggleEmail()"> E-mail da Lucralize</label>'+
-    '</div>'+
-    '<div class="field" id="fab-q14-email-wrap" style="display:none;"><label>E-mail pessoal <span class="req-mark">*</span></label><input type="email" id="fab-q14-email" placeholder="seuemail@exemplo.com"></div>');
+  var q13 = Q('Telefone e e-mail que serão incluídos no cartão CNPJ', ''+
+    '<div class="obs-note">Serão utilizados o <strong>telefone e o e-mail da Lucralize</strong>. Esta informação aparecerá no cartão CNPJ da empresa ao ser consultada na Receita Federal, <strong>ficando visível para qualquer pessoa</strong>. Essas informações <strong>podem ser alteradas a qualquer momento após a conclusão do processo, sem custo adicional</strong>, com prazo de conclusão da alteração de <strong>aproximadamente 1 semana</strong>.</div>'+
+    '<label class="radio-option" style="align-items:center;"><input type="checkbox" id="fab-q13-ciente" onchange="PS.fabToggleCiente()"> <strong>Estou ciente!</strong><span class="req-mark">*</span></label>');
 
   var q15 = Q('Por favor, confirme que está ciente do serviço prestado pela Lucralize.', ''+
-    '<div class="obs-note">Gostaríamos de ressaltar que <span class="txt-danger-strong">"não nos responsabilizamos"</span> pela retirada do <span class="txt-danger-strong">"alvará"</span>; garantimos apenas a <span class="txt-danger-strong">"Abertura do CNPJ"</span>. Cada estado e município tem suas <span class="txt-danger-strong">"particularidades"</span>, por isso não prestamos esse serviço.</div>'+
+    '<div class="obs-note">Gostaríamos de ressaltar que <span class="txt-danger-strong">"não nos responsabilizamos"</span> pela retirada do <span class="txt-danger-strong">"alvará"</span>; garantimos apenas a <span class="txt-danger-strong">"'+(isTransf?'Transformação de MEI para ME':'Abertura do CNPJ')+'"</span>. Cada estado e município tem suas <span class="txt-danger-strong">"particularidades"</span>, por isso não prestamos esse serviço.</div>'+
     '<label class="radio-option" style="align-items:center;"><input type="checkbox" id="fab-q15-ciente" onchange="PS.fabToggleCiente()"> <strong>Estou ciente!</strong><span class="req-mark">*</span></label>');
 
-  var avisoUrgencia = avisoUrgenciaHtml('fab-urgencia-ciente', 'PS.fabToggleCiente()');
+  var avisoUrgencia = avisoUrgenciaHtml('fab-urgencia-ciente', 'PS.fabToggleCiente()', true);
 
   var html = ''+
   '<div class="overlay" id="svc-overlay" onclick="if(event.target===this) PS.closePanel()">'+
@@ -2483,7 +2659,7 @@ function openSolicitarFormAbertura(variant){
       '<div class="panel-body">'+
         '<p style="color:var(--ink-soft); font-size:.87rem; line-height:1.5;">Este formulário reúne todas as informações necessárias para dar início ao seu processo. Preencha com atenção — os campos marcados com <span class="req-mark">*</span> são obrigatórios.</p>'+
         '<div id="fab-errors" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
-        q1+qTransf+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15+avisoUrgencia+
+        q1+qTransf+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q15+avisoUrgencia+
       '</div>'+
       '<div class="panel-foot">'+
         '<button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button>'+
@@ -2565,13 +2741,8 @@ function fabValidar(variant){
   reqRadio('fab-q11', 'Enquadramento da empresa (pergunta 11)');
   reqRadio('fab-q12', 'Opção pelo Simples Nacional (pergunta 12)');
 
-  reqRadio('fab-q13', 'Telefone para o cartão CNPJ (pergunta 13)');
-  var q13radio = document.querySelector('input[name="fab-q13"]:checked');
-  if(q13radio && q13radio.value==='pessoal') req('fab-q13-tel', 'Número de telefone pessoal (pergunta 13)');
-
-  reqRadio('fab-q14', 'E-mail para o cartão CNPJ (pergunta 14)');
-  var q14radio = document.querySelector('input[name="fab-q14"]:checked');
-  if(q14radio && q14radio.value==='pessoal') req('fab-q14-email', 'E-mail pessoal (pergunta 14)');
+  var cienteContato = document.getElementById('fab-q13-ciente');
+  if(!cienteContato || !cienteContato.checked) erros.push('Confirmação "Estou ciente!" sobre o telefone e e-mail do cartão CNPJ (pergunta 13)');
 
   var ciente = document.getElementById('fab-q15-ciente');
   if(!ciente || !ciente.checked) erros.push('Confirmação "Estou ciente!" do serviço prestado (pergunta 15)');
@@ -2608,8 +2779,6 @@ async function enviarSolicitacaoAbertura(variant){
   var q10radio = document.querySelector('input[name="fab-q10"]:checked');
   var q11radio = document.querySelector('input[name="fab-q11"]:checked');
   var q12radio = document.querySelector('input[name="fab-q12"]:checked');
-  var q13radio = document.querySelector('input[name="fab-q13"]:checked');
-  var q14radio = document.querySelector('input[name="fab-q14"]:checked');
   var isProprio = q3radio.value==='proprio';
   var servicoId = isTransf ? 'transformacao-mei-me' : 'abertura-cnpj';
   var id = 'p'+Date.now();
@@ -2636,10 +2805,10 @@ async function enviarSolicitacaoAbertura(variant){
       naturezaJuridica: q10radio.value,
       enquadramento: q11radio.value,
       simplesNacional: q12radio.value,
-      telefoneOpcao: q13radio.value,
-      telefonePessoal: q13radio.value==='pessoal' ? document.getElementById('fab-q13-tel').value.trim() : '',
-      emailOpcao: q14radio.value,
-      emailPessoal: q14radio.value==='pessoal' ? document.getElementById('fab-q14-email').value.trim() : '',
+      telefoneOpcao: 'lucralize',
+      telefonePessoal: '',
+      emailOpcao: 'lucralize',
+      emailPessoal: '',
       cienteServico: true
     };
   }catch(e){
@@ -2656,7 +2825,7 @@ async function enviarSolicitacaoAbertura(variant){
   var ok = await finalizarNovoProcesso({
     id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
     criadoEm: todayISO(), protocolo:'',
-    historico:[{data:todayISO(), hora:nowHM(), texto:(isTransf?'Formulário de transformação de MEI para ME':'Formulário de abertura de CNPJ')+' preenchido e enviado pelo cliente. Aguardando envio do boleto.', autor:'cliente'}],
+    historico:[{data:todayISO(), hora:nowHM(), texto:(isTransf?'Formulário de transformação de MEI para ME':'Formulário de abertura de CNPJ')+' preenchido e enviado pelo cliente.', autor:'cliente'}],
     documentosAndamento:[], documentosFinais:[],
     formularioAbertura: dados
   });
@@ -2666,7 +2835,7 @@ async function enviarSolicitacaoAbertura(variant){
 function renderFormularioAberturaResumo(p){
   var d = p.formularioAbertura;
   if(!d) return '';
-  var natureza = {LTDA:'LTDA - Sociedade Empresária Limitada', EI:'EI - Empresário (Individual)'}[d.naturezaJuridica] || d.naturezaJuridica;
+  var natureza = {LTDA:'LTDA - Sociedade Empresária Limitada', EI:'EI - Empresário (Individual)', SA:'S/A - Sociedade Anônima'}[d.naturezaJuridica] || d.naturezaJuridica;
   var enquadramento = {ME:'ME - Micro Empresa', EPP:'EPP - Empresa de Pequeno Porte', outros:'Outros/Não Sei'}[d.enquadramento] || d.enquadramento;
   var simples = {sim:'Sim', nao:'Não', nao_sei:'Não sei'}[d.simplesNacional] || d.simplesNacional;
   var enderecoInfo = d.enderecoFiscalLucralize ? 'Endereço fiscal Lucralize (Belo Horizonte)' : (d.enderecoProprio+' · Área: '+esc(d.areaM2)+' m²'+(d.iptuIndice?' · Índice cadastral IPTU: '+esc(d.iptuIndice):''));
@@ -2822,11 +2991,12 @@ function altToggleCiente(){
 function openSolicitarFormAlteracao(servicoId){
   var s = SERVICE_MAP[servicoId];
   var isComplexa = servicoId === 'alteracao-complexa';
+  var vGate = state.visitante || {};
   closePanel();
 
   var q1 = fabQ(1, 'Nome completo', ''+
     '<p style="font-size:.82rem; color:var(--ink-soft);">Preencha o nome completo de quem está preenchendo o formulário.</p>'+
-    '<div class="field"><label>Nome completo <span class="req-mark">*</span></label><input type="text" id="alt-q1-nome" placeholder="Seu nome completo"></div>');
+    '<div class="field"><label>Nome completo <span class="req-mark">*</span></label><input type="text" id="alt-q1-nome" value="'+esc(vGate.nome||'')+'" placeholder="Seu nome completo"></div>');
 
   var qEstados = '';
   var proxNum = 2;
@@ -2834,8 +3004,8 @@ function openSolicitarFormAlteracao(servicoId){
     qEstados = fabQ(2, 'Esta alteração contratual complexa envolve mudança entre estados', ''+
       '<div class="obs-note">Alterações contratuais complexas são aquelas que precisam ser realizadas entre dois estados diferentes.</div>'+
       '<div class="form-grid">'+
-        '<div class="field"><label>UF de origem <span class="req-mark">*</span></label><input type="text" id="alt-origem-estado" maxlength="2" placeholder="Ex.: MG"></div>'+
-        '<div class="field"><label>UF de destino <span class="req-mark">*</span></label><input type="text" id="alt-destino-estado" maxlength="2" placeholder="Ex.: SP"></div>'+
+        '<div class="field"><label>UF de origem <span class="req-mark">*</span></label><input type="text" id="alt-origem-estado" maxlength="2" placeholder="Ex.: MG" oninput="this.value=this.value.replace(/[^A-Za-z]/g,\'\').toUpperCase()"></div>'+
+        '<div class="field"><label>UF de destino <span class="req-mark">*</span></label><input type="text" id="alt-destino-estado" maxlength="2" placeholder="Ex.: SP" oninput="this.value=this.value.replace(/[^A-Za-z]/g,\'\').toUpperCase()"></div>'+
         '<div class="field"><label>Município de destino <span class="req-mark">*</span></label><input type="text" id="alt-destino-municipio" placeholder="Cidade de destino"></div>'+
       '</div>');
     proxNum = 3;
@@ -3716,7 +3886,7 @@ function openSolicitarFormRepresentante(){
     '<div class="q-title">Detalhes — Alteração de Contato do Cartão CNPJ</div>'+
     '<div class="obs-note">Esta informação aparecerá no cartão CNPJ da empresa ao ser consultada na Receita Federal, ficando visível para qualquer pessoa.</div>'+
     '<div class="form-grid">'+
-      '<div class="field"><label>Telefone desejado <span class="req-mark">*</span></label><input type="text" id="rep-telefone" placeholder="(31) 90000-0000"></div>'+
+      '<div class="field"><label>Telefone desejado <span class="req-mark">*</span></label><input type="text" id="rep-telefone" placeholder="(31) 90000-0000" oninput="PS.maskTelefone(this)"></div>'+
       '<div class="field"><label>E-mail desejado <span class="req-mark">*</span></label><input type="email" id="rep-email" placeholder="seuemail@exemplo.com"></div>'+
     '</div>'+
   '</div>';
@@ -4037,14 +4207,26 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
     }
   }
 
+  var divisaoInline = '';
+  if(adminMode){
+    var divisaoAtual = divisaoForProcesso(p);
+    if(uAtual && uAtual.role==='admin'){
+      var divisaoOptions = '<option value="">Não definido</option>'+
+        '<option value="tech"'+(p.divisao==='tech'?' selected':'')+'>Lucralize Tech</option>'+
+        '<option value="contabilidade"'+(p.divisao==='contabilidade'?' selected':'')+'>Lucralize Contabilidade</option>';
+      divisaoInline = '<span style="display:inline-flex; align-items:center; gap:.4rem; font-size:.8rem; color:var(--ink-soft);">Tech/Contabilidade:'+
+        '<select id="divisao-select-'+p.id+'" onchange="PS.atribuirDivisao(\''+p.id+'\', this.value)" style="padding:.32rem .5rem; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:.8rem; font-family:inherit;">'+divisaoOptions+'</select></span>';
+    } else {
+      divisaoInline = '<span class="pill" style="background:var(--surface-2); color:var(--ink-soft);">'+(divisaoAtual ? esc(divisaoLabel(divisaoAtual)) : 'Tech/Contabilidade não definido')+'</span>';
+    }
+  }
+
   var nomeQuem = company ? company.nome : nomeParaProcesso(p);
   var isAberturaPendente = p.servicoId==='abertura-cnpj' && p.status!=='concluido';
   var empresaInfoHtml = isAberturaPendente ? (''+
       '<div class="info-block"><span class="lbl">Solicitante</span><span class="val">'+esc((p.formularioAbertura && p.formularioAbertura.nomeCompleto) || nomeQuem)+'</span></div>'+
       (!ehFreelancer && p.solicitanteContato && p.solicitanteContato.telefone ? '<div class="info-block"><span class="lbl">Telefone</span><span class="val">'+esc(p.solicitanteContato.telefone)+'</span></div>' : '')+
-      (!ehFreelancer && p.solicitanteContato && p.solicitanteContato.email ? '<div class="info-block"><span class="lbl">E-mail</span><span class="val">'+esc(p.solicitanteContato.email)+'</span></div>' : '')+
-      '<div class="info-block"><span class="lbl">Nome empresarial</span><span class="val" style="color:var(--ink-faint); font-style:italic; font-weight:500;">A definir na constituição da empresa</span></div>'+
-      '<div class="info-block"><span class="lbl">CNPJ</span><span class="val" style="color:var(--ink-faint); font-style:italic; font-weight:500;">A ser emitido após a abertura</span></div>'
+      (!ehFreelancer && p.solicitanteContato && p.solicitanteContato.email ? '<div class="info-block"><span class="lbl">E-mail</span><span class="val">'+esc(p.solicitanteContato.email)+'</span></div>' : '')
     ) : (company ? (''+
       '<div class="info-block"><span class="lbl">Razão social</span><span class="val">'+esc(company.nome)+'</span></div>'+
       '<div class="info-block"><span class="lbl">CNPJ</span><span class="val mono">'+esc(company.cnpj)+'</span></div>'
@@ -4118,7 +4300,7 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
         (p.ordemServico ? '<span class="pill" style="background:var(--surface-2); color:var(--ink-soft);">Ordem de serviço: <span class="mono" style="margin-left:.3em; font-weight:700;">'+esc(p.ordemServico)+'</span></span>' : '')+
         (podeDesistir ? '<button class="btn btn-danger btn-sm" onclick="PS.openDesistirModal(\''+p.id+'\')">Desistir do processo</button>' : '')+
       '</div>'+
-      (adminMode ? '<div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">'+responsavelInline+'</div>' : '')+
+      (adminMode ? '<div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">'+responsavelInline+divisaoInline+'</div>' : '')+
     '</div>'+
     '</div>'+
 
@@ -4172,6 +4354,23 @@ async function confirmarDesistencia(id){
     saveState();
     render();
     toast('Não foi possível registrar a desistência. Verifique sua internet e tente novamente.');
+  }
+}
+async function atribuirDivisao(id, divisao){
+  var p = state.processes.filter(function(x){return x.id===id;})[0];
+  if(!p) return;
+  var anterior = p.divisao;
+  p.divisao = divisao || null;
+  saveState();
+  render();
+  var ok = await salvarProcessoNoServidor(p);
+  if(ok){
+    toast(divisao ? ('Processo marcado como '+divisaoLabel(divisao)+'.') : 'Tech/Contabilidade removido do processo.');
+  } else {
+    p.divisao = anterior;
+    saveState();
+    render();
+    toast('Não foi possível salvar. Verifique sua internet e tente novamente.');
   }
 }
 async function atribuirResponsavel(id, userId){
@@ -4257,11 +4456,11 @@ async function executarAvancoEtapa(id, pendenciasTexto){
   var sufixoPendencias = pendenciasTexto ? ' Informações pendentes: '+pendenciasTexto : '';
   if(p.status==='aguardando_pagamento'){
     p.status='em_andamento'; p.etapaAtual=0;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+etapas[0]+'.'+sufixoPendencias, autor:'lucralize'});
+    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+etapas[0]+'.'+sufixoPendencias, autor:nomeAutorAtual()});
   } else if(p.etapaAtual < etapas.length-1){
     p.etapaAtual++;
     var chegouAoFim = p.etapaAtual===etapas.length-1;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:'lucralize'});
+    p.historico.push({data:todayISO(), hora:nowHM(), texto: etapas[p.etapaAtual]+'.'+sufixoPendencias+(chegouAoFim?' Processo concluído! 🎉':''), autor:nomeAutorAtual()});
     if(chegouAoFim){
       p.status='concluido';
       /* Antes, se a equipe não tivesse anexado o documento final de verdade,
@@ -4356,7 +4555,7 @@ async function confirmarReiniciarProcesso(id){
     p.status='em_andamento'; p.etapaAtual=idx;
   }
   var label = idx===-1 ? 'Pagamento confirmado' : etapasDoProcesso(p)[idx];
-  p.historico.push({data:todayISO(), hora:nowHM(), texto:'Processo reiniciado manualmente pela equipe Lucralize para a etapa: '+label+'.'+(statusAnterior!==p.status?' (status anterior: '+statusLabel(statusAnterior)+')':''), autor:'lucralize'});
+  p.historico.push({data:todayISO(), hora:nowHM(), texto:'Processo reiniciado manualmente pela equipe Lucralize para a etapa: '+label+'.'+(statusAnterior!==p.status?' (status anterior: '+statusLabel(statusAnterior)+')':''), autor:nomeAutorAtual()});
   saveState();
   closePanel();
   render();
@@ -4768,7 +4967,7 @@ async function confirmarIncluirProcessoManual(){
   var processo = {
     id:id, servicoId:servicoId, status:status, etapaAtual:etapaAtual,
     criadoEm: dataAbertura, protocolo:'',
-    historico:[{data:dataAbertura, hora:nowHM(), texto:'Processo incluído manualmente pela equipe Lucralize a partir de um registro anterior a este portal.'+(arquivo?' Documento original anexado: '+arquivo.nome+'.':''), autor:'lucralize'}],
+    historico:[{data:dataAbertura, hora:nowHM(), texto:'Processo incluído manualmente pela equipe Lucralize a partir de um registro anterior a este portal.'+(arquivo?' Documento original anexado: '+arquivo.nome+'.':''), autor:nomeAutorAtual()}],
     documentosAndamento: arquivo ? [arquivo] : [],
     documentosFinais: [], /* sem arquivo real anexado ainda não vira item fictício não-baixável — ver nota em executarAvancoEtapa */
     formularioManual: {arquivo:arquivo||null},
@@ -4813,12 +5012,85 @@ function renderAdminUsuarios(){
       '<td>'+(c?esc(c.nome):'—')+'</td>'+
       '<td><span class="role-chip '+chip.cls+'">'+chip.label+'</span></td>'+
       '<td class="mono">'+esc(u.telefone||'—')+'</td>'+
+      '<td style="font-size:.78rem; color:var(--ink-soft);">'+esc(fmtDataHora(u.ultimoAcesso))+'</td>'+
+      '<td><button class="btn btn-ghost btn-sm" onclick="PS.abrirEditarUsuario(\''+u.id+'\')">Editar</button></td>'+
     '</tr>';
   }).join('');
   return ''+
   '<div class="banner-proto">'+seal(16)+' No portal final, o acesso é enviado por e-mail/WhatsApp com senha provisória.</div>'+
   '<div class="section-title"><h3>Usuários com acesso ao portal</h3><button class="btn btn-accent btn-sm" onclick="PS.openNovoUsuario()">+ Novo usuário</button></div>'+
-  '<div class="card u-scroll-x"><table><thead><tr><th>Nome</th><th>Empresa</th><th>Perfil</th><th>Telefone</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  '<div class="card u-scroll-x"><table><thead><tr><th>Nome</th><th>Empresa</th><th>Perfil</th><th>Telefone</th><th>Último acesso</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function abrirEditarUsuario(id){
+  var u = getUser(id);
+  if(!u) return;
+  var c = u.empresaId ? getCompany(u.empresaId) : null;
+  var camposEmpresaHtml = c ? (''+
+    '<div class="form-grid">'+
+      '<div class="field full"><label>Razão social da empresa</label><input id="eu-empresa" type="text" value="'+esc(c.nome||'')+'"></div>'+
+      '<div class="field"><label>CNPJ</label><input id="eu-cnpj" type="text" value="'+esc(c.cnpj||'')+'" oninput="PS.maskCnpj(this)"></div>'+
+      '<div class="field"><label>Tipo societário</label><input id="eu-tipo" type="text" value="'+esc(c.tipo||'')+'"></div>'+
+    '</div>') : '';
+  var html = ''+
+  '<div class="overlay modal-center" id="modal-root" onclick="if(event.target===this) PS.closePanel()">'+
+    '<div class="modal-box">'+
+      '<div class="panel-head"><h3 style="font-size:1.05rem;">Editar cadastro</h3><button class="close-x" onclick="PS.closePanel()">✕</button></div>'+
+      '<div class="panel-body">'+
+        '<div id="eu-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
+        '<div class="form-grid">'+
+          '<div class="field full"><label>Nome completo <span class="req-mark">*</span></label><input id="eu-nome" type="text" value="'+esc(u.nome||'')+'"></div>'+
+          '<div class="field full"><label>Telefone / WhatsApp</label><input id="eu-telefone" type="text" value="'+esc(u.telefone||'')+'" placeholder="(31) 90000-0000" oninput="PS.maskTelefone(this)"></div>'+
+        '</div>'+
+        '<p style="font-size:.76rem; color:var(--ink-faint);">O e-mail de acesso não pode ser alterado por aqui — entre em contato com o suporte técnico, se necessário.</p>'+
+        camposEmpresaHtml+
+      '</div>'+
+      '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-primary" id="eu-salvar-btn" onclick="PS.salvarEdicaoUsuario(\''+id+'\')">Salvar alterações</button></div>'+
+    '</div>'+
+  '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+async function salvarEdicaoUsuario(id){
+  var u = getUser(id);
+  if(!u) return;
+  var nome = ((document.getElementById('eu-nome')||{}).value || '').trim();
+  var telefone = ((document.getElementById('eu-telefone')||{}).value || '').trim();
+  var errBox = document.getElementById('eu-erro');
+  if(!nome){ if(errBox){ errBox.textContent='Preencha o nome completo.'; errBox.style.display='block'; } return; }
+  var btn = document.getElementById('eu-salvar-btn');
+  if(btn) btn.disabled = true;
+
+  var snapshotUsuario = JSON.parse(JSON.stringify(u));
+  u.nome = nome;
+  u.telefone = telefone || '—';
+
+  var c = u.empresaId ? getCompany(u.empresaId) : null;
+  var snapshotEmpresa = c ? JSON.parse(JSON.stringify(c)) : null;
+  if(c){
+    var empresaEl = document.getElementById('eu-empresa');
+    var cnpjEl = document.getElementById('eu-cnpj');
+    var tipoEl = document.getElementById('eu-tipo');
+    if(empresaEl && empresaEl.value.trim()) c.nome = empresaEl.value.trim();
+    if(cnpjEl && cnpjEl.value.trim()) c.cnpj = cnpjEl.value.trim();
+    if(tipoEl && tipoEl.value.trim()) c.tipo = tipoEl.value.trim();
+  }
+
+  saveState();
+  render();
+
+  var resUsuario = await supa.from('usuarios').update(usuarioParaRow(u)).eq('id', u.id);
+  var resEmpresa = c ? await supa.from('empresas').update(empresaParaRow(c)).eq('id', c.id) : {error:null};
+
+  if(!resUsuario.error && !resEmpresa.error){
+    closePanel();
+    toast('Cadastro atualizado.');
+  } else {
+    Object.assign(u, snapshotUsuario);
+    if(c && snapshotEmpresa) Object.assign(c, snapshotEmpresa);
+    saveState();
+    render();
+    toast('Não foi possível salvar as alterações. Verifique sua internet e tente novamente.');
+  }
 }
 
 function openNovoUsuario(){
@@ -4956,13 +5228,15 @@ window.PS = {
   openSolicitarForm: openSolicitarForm, onDocFileChosen: onDocFileChosen, enviarSolicitacao: enviarSolicitacao,
   avancarEtapa: avancarEtapa, anexarDocumento: anexarDocumento, anexarDocPendente: anexarDocPendente, baixarArquivoReal: baixarArquivoReal,
   openNovoUsuario: openNovoUsuario, criarUsuario: criarUsuario, nuToggleTipoAcesso: nuToggleTipoAcesso, toast: toast,
+  abrirEditarUsuario: abrirEditarUsuario, salvarEdicaoUsuario: salvarEdicaoUsuario,
   salvarProtocolo: salvarProtocolo, filtrarProcessosLive: filtrarProcessosLive, limparFiltrosProcessos: limparFiltrosProcessos,
   fabAtualizarSocios: fabAtualizarSocios, fabRegenerarSocios: fabRegenerarSocios, fabNomeSocioChanged: fabNomeSocioChanged,
   fabToggleEstadoCivil: fabToggleEstadoCivil, fabFileChosen: fabFileChosen, fabToggleEndereco: fabToggleEndereco,
-  fabToggleIptuModo: fabToggleIptuModo, fabToggleNatureza: fabToggleNatureza, fabToggleTelefone: fabToggleTelefone,
-  fabToggleEmail: fabToggleEmail, fabToggleCiente: fabToggleCiente, enviarSolicitacaoAbertura: enviarSolicitacaoAbertura,
+  fabToggleIptuModo: fabToggleIptuModo, fabToggleNatureza: fabToggleNatureza,
+  fabToggleCiente: fabToggleCiente, enviarSolicitacaoAbertura: enviarSolicitacaoAbertura,
   fabToggleIrModo: fabToggleIrModo, openDesistirModal: openDesistirModal, confirmarDesistencia: confirmarDesistencia,
-  enviarObservacaoCliente: enviarObservacaoCliente, atribuirResponsavel: atribuirResponsavel,
+  enviarObservacaoCliente: enviarObservacaoCliente, atribuirResponsavel: atribuirResponsavel, atribuirDivisao: atribuirDivisao,
+  maskTelefone: maskTelefone, maskCnpj: maskCnpj, maskDigitos: maskDigitos,
   altToggleTipos: altToggleTipos, altToggleIptuModo: altToggleIptuModo, altRegenerarSocios: altRegenerarSocios, altToggleLocal: altToggleLocal,
   altToggleNomeFantasia: altToggleNomeFantasia, altToggleCiente: altToggleCiente, enviarSolicitacaoAlteracao: enviarSolicitacaoAlteracao,
   baxToggleFluxo: baxToggleFluxo, baxToggleEstadualNA: baxToggleEstadualNA, baxToggleParcelamento: baxToggleParcelamento,
@@ -4977,7 +5251,7 @@ window.PS = {
   manualAtualizarEtapas: manualAtualizarEtapas, manualToggleEmpresa: manualToggleEmpresa,
   goLinkPublico: goLinkPublico, linkPublicoSair: linkPublicoSair, linkPublicoSubmitGate: linkPublicoSubmitGate,
   linkPublicoAcompanharBuscar: linkPublicoAcompanharBuscar, linkPublicoSetTipo: linkPublicoSetTipo,
-  linkPublicoSetDivisao: linkPublicoSetDivisao, linkPublicoSetCnpjStatus: linkPublicoSetCnpjStatus
+  linkPublicoIniciarFluxo: linkPublicoIniciarFluxo
 };
 
 /* Link avulso (ex.: para envio por WhatsApp): abrir direto na tela de
