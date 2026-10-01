@@ -863,10 +863,25 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20261001-b13';
+var BUILD_ID = '20261001-b14';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+/* Quando o admin gera uma nova senha para um usuário (PS.gerarNovaSenhaUsuario),
+   o Supabase manda um e-mail de redefinição; ao clicar no link, o usuário volta
+   para cá com uma sessão de recuperação ativa. Esse evento PASSWORD_RECOVERY
+   precisa ser capturado assim que o cliente é criado (antes do boot() rodar)
+   para desviarmos para a tela de "definir nova senha" em vez de logar com a
+   senha antiga sem querer. */
+var pendingPasswordRecovery = false;
+supa.auth.onAuthStateChange(function(event, session){
+  if(event === 'PASSWORD_RECOVERY'){
+    pendingPasswordRecovery = true;
+    state.session = session;
+    state.view = {name:'definir-nova-senha-recovery'};
+    render();
+  }
+});
 var STORAGE_BUCKET = 'documentos';
 function sanitizeFileName(nome){
   return String(nome||'arquivo').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9.\-_]+/g,'_').slice(0,140);
@@ -1576,6 +1591,11 @@ async function boot(){
   try{
     var sessionResp = await supa.auth.getSession();
     var session = sessionResp.data && sessionResp.data.session;
+    /* Se um evento PASSWORD_RECOVERY chegou durante esse await (clique no link
+       de "gerar nova senha" enviado pelo admin), o listener lá em cima já
+       trocou a view para a tela de definir nova senha — não sobrescrever
+       logando normalmente com a sessão de recuperação. */
+    if(pendingPasswordRecovery){ return; }
     if(session){ await login(session.user.id); return; }
   }catch(e){ console.error(e); }
   state.view = {name:'login'};
@@ -1624,6 +1644,7 @@ function render(){
   if(state.view && state.view.name==='carregando'){ app.innerHTML = renderCarregando(); return; }
   if(state.view && state.view.name==='link-publico'){ app.innerHTML = renderLinkPublico(); return; }
   if(state.view && state.view.name==='trocar-senha-obrigatoria'){ app.innerHTML = renderTrocarSenhaObrigatoria(); return; }
+  if(state.view && state.view.name==='definir-nova-senha-recovery'){ app.innerHTML = renderDefinirNovaSenhaRecovery(); return; }
   if(!state.session){ app.innerHTML = renderLogin(); return; }
   var u = currentUser();
   if(!u){ logout(); return; }
@@ -1787,6 +1808,49 @@ function trocarSenhaVoltarLogin(){
   state.session = null;
   state.view = {name:'login'};
   render();
+}
+
+/* ---------- DEFINIR NOVA SENHA (via link de recuperação, gerado pelo admin) ---------- */
+function renderDefinirNovaSenhaRecovery(){
+  return ''+
+  '<div class="login-wrap">'+
+    '<div class="login-grid">'+
+      '<div class="login-pitch">'+
+        '<img class="brand-logo" src="'+LOGO_DATA_URI+'" alt="Lucralize">'+
+        '<h1>Societário — fique por dentro de tudo</h1>'+
+        '<p>Acompanhe o andamento da abertura, alteração ou baixa da sua empresa de forma simples e transparente.</p>'+
+      '</div>'+
+      '<div class="login-form-side">'+
+        '<div><h2 style="font-size:1.5rem;">Definir nova senha</h2></div>'+
+        '<p style="color:var(--ink-soft); font-size:.88rem; margin-top:.35rem; line-height:1.5;">Escolha a nova senha de acesso à sua conta.</p>'+
+        '<div id="recovery-senha-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
+        '<div class="field"><label>Nova senha</label><input id="recovery-senha-nova" type="password" placeholder="Mínimo de 6 caracteres" onkeydown="if(event.key===\'Enter\') PS.confirmarNovaSenhaRecovery()"></div>'+
+        '<div class="field"><label>Confirmar nova senha</label><input id="recovery-senha-confirma" type="password" placeholder="Repita a nova senha" onkeydown="if(event.key===\'Enter\') PS.confirmarNovaSenhaRecovery()"></div>'+
+        '<button class="btn btn-teal btn-block" onclick="PS.confirmarNovaSenhaRecovery()">Salvar senha e entrar</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+async function confirmarNovaSenhaRecovery(){
+  var novaInput = document.getElementById('recovery-senha-nova');
+  var confirmaInput = document.getElementById('recovery-senha-confirma');
+  var errBox = document.getElementById('recovery-senha-erro');
+  var nova = novaInput ? novaInput.value : '';
+  var confirma = confirmaInput ? confirmaInput.value : '';
+  function mostrarErro(msg){ if(errBox){ errBox.textContent = msg; errBox.style.display='block'; } }
+  if(!nova || nova.length<6){ mostrarErro('A nova senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(nova!==confirma){ mostrarErro('As senhas não coincidem.'); return; }
+  var btn = document.querySelector('.login-form-side .btn-teal');
+  if(btn){ btn.disabled = true; }
+  var updResp = await supa.auth.updateUser({password: nova});
+  if(updResp.error){
+    if(btn){ btn.disabled = false; }
+    mostrarErro('Não foi possível salvar a nova senha. Tente novamente.');
+    return;
+  }
+  pendingPasswordRecovery = false;
+  toast('Senha alterada com sucesso. Bem-vindo(a)!');
+  await login(updResp.data.user.id);
 }
 
 /* =========================================================
@@ -5182,11 +5246,71 @@ function abrirEditarUsuario(id){
         '<div id="eu-permissoes-wrap" style="display:'+((u.role==='colaborador'||u.role==='freelancer')?'flex':'none')+'; flex-direction:column; gap:.5rem;">'+
           euPermissoesHtml(u)+
         '</div>'+
+        '<div class="section-title" style="margin-top:1.1rem;"><h3 style="font-size:.9rem;">Ações da conta</h3></div>'+
+        '<button type="button" class="btn btn-ghost btn-block" id="eu-gerar-senha-btn" onclick="PS.gerarNovaSenhaUsuario(\''+id+'\')">🔑 Gerar nova senha</button>'+
+        (euEhPropriaConta(id) ?
+          '<p style="font-size:.76rem; color:var(--ink-faint); margin-top:.4rem;">Você não pode excluir a própria conta por aqui.</p>' :
+          '<button type="button" class="btn btn-block" style="margin-top:.5rem; border:1px solid var(--danger); color:var(--danger); background:transparent;" onclick="PS.abrirExcluirUsuario(\''+id+'\')">🗑 Excluir usuário</button>'
+        )+
       '</div>'+
       '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.closePanel()">Cancelar</button><button class="btn btn-primary" id="eu-salvar-btn" onclick="PS.salvarEdicaoUsuario(\''+id+'\')">Salvar alterações</button></div>'+
     '</div>'+
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
+}
+function euEhPropriaConta(id){
+  var eu = currentUser();
+  return !!(eu && eu.id === id);
+}
+async function gerarNovaSenhaUsuario(id){
+  var u = getUser(id);
+  if(!u || !u.email) return;
+  var btn = document.getElementById('eu-gerar-senha-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
+  var redirectUrl = window.location.origin + window.location.pathname;
+  var resp = await supa.auth.resetPasswordForEmail(u.email, {redirectTo: redirectUrl});
+  if(btn){ btn.disabled = false; btn.textContent = '🔑 Gerar nova senha'; }
+  if(resp.error){
+    toast('Não foi possível enviar o link de redefinição. Tente novamente.');
+    return;
+  }
+  toast('Link para criar uma nova senha foi enviado para '+u.email+'.');
+}
+function abrirExcluirUsuario(id){
+  var u = getUser(id);
+  if(!u) return;
+  var html = ''+
+  '<div class="overlay modal-center" id="modal-excluir-usuario-root" onclick="if(event.target===this) PS.fecharExcluirUsuario()">'+
+    '<div class="modal-box">'+
+      '<div class="panel-head"><h3 style="font-size:1.05rem;">Excluir usuário</h3><button class="close-x" onclick="PS.fecharExcluirUsuario()">✕</button></div>'+
+      '<div class="panel-body">'+
+        '<p style="color:var(--ink-soft); font-size:.9rem; line-height:1.5;">Você está prestes a excluir permanentemente o acesso de <strong style="color:var(--ink);">'+esc(u.nome)+'</strong> ('+esc(u.email)+'). Esta ação não pode ser desfeita — a conta não poderá mais entrar no portal.</p>'+
+        '<div id="excluir-usuario-erro" class="obs-note" style="display:none; background:var(--danger-bg); border:1px solid var(--danger); color:var(--ink);"></div>'+
+      '</div>'+
+      '<div class="panel-foot"><button class="btn btn-ghost" onclick="PS.fecharExcluirUsuario()">Cancelar</button><button class="btn" id="excluir-usuario-btn" style="background:var(--danger); color:#fff;" onclick="PS.confirmarExcluirUsuario(\''+id+'\')">Excluir usuário</button></div>'+
+    '</div>'+
+  '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function fecharExcluirUsuario(){
+  var el = document.getElementById('modal-excluir-usuario-root');
+  if(el) el.remove();
+}
+async function confirmarExcluirUsuario(id){
+  var btn = document.getElementById('excluir-usuario-btn');
+  var errBox = document.getElementById('excluir-usuario-erro');
+  if(btn) btn.disabled = true;
+  var resp = await supa.rpc('admin_excluir_usuario', {target_id: id});
+  if(resp.error){
+    if(btn) btn.disabled = false;
+    if(errBox){ errBox.textContent = 'Não foi possível excluir: '+resp.error.message; errBox.style.display='block'; }
+    return;
+  }
+  state.users = state.users.filter(function(u){ return u.id !== id; });
+  fecharExcluirUsuario();
+  closePanel();
+  render();
+  toast('Usuário excluído.');
 }
 function euToggleTipoAcesso(){
   var tipo = (document.querySelector('input[name="eu-tipo-acesso"]:checked')||{}).value || 'admin';
@@ -5398,6 +5522,9 @@ window.PS = {
   openService: openService, closePanel: closePanel, openEsqueciSenha: openEsqueciSenha, toggleItemInterno: toggleItemInterno,
   submeterLogin: submeterLogin, trocarSenhaEnviarLink: trocarSenhaEnviarLink, trocarSenhaDefinirSenha: trocarSenhaDefinirSenha,
   trocarSenhaReenviarLink: trocarSenhaReenviarLink, trocarSenhaVoltarLogin: trocarSenhaVoltarLogin,
+  confirmarNovaSenhaRecovery: confirmarNovaSenhaRecovery,
+  gerarNovaSenhaUsuario: gerarNovaSenhaUsuario, abrirExcluirUsuario: abrirExcluirUsuario,
+  fecharExcluirUsuario: fecharExcluirUsuario, confirmarExcluirUsuario: confirmarExcluirUsuario,
   selecionarTipoProcesso: selecionarTipoProcesso, mudarMesConcluidos: mudarMesConcluidos,
   openSolicitarForm: openSolicitarForm, onDocFileChosen: onDocFileChosen, enviarSolicitacao: enviarSolicitacao,
   avancarEtapa: avancarEtapa, anexarDocumento: anexarDocumento, anexarDocPendente: anexarDocPendente, baixarArquivoReal: baixarArquivoReal,
