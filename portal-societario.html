@@ -661,7 +661,7 @@ var SERVICES = [
     valorTextoCustomHtml:'<p style="margin:0;">A Lucralize oferece <strong>gratuitamente</strong> o serviço de abertura da empresa para novos clientes.</p>'+
       '<p style="margin:.7rem 0 0;">Os custos das <strong>taxas necessárias para a abertura são de responsabilidade do cliente</strong>, incluindo: <strong>Junta Comercial, certificado digital e Taxa de Localização e Funcionamento</strong>. Os valores das taxas da Junta Comercial e da Prefeitura variam de acordo com o <strong>Estado e Município</strong> onde a empresa será registrada.</p>',
     documentos:['RG e CPF (ou CNH) de todos os sócios','Guia de IPTU do imóvel do CNPJ (apenas para quem optar por não utilizar o endereço fiscal Lucralize)','Definição do objeto social (atividades a exercer)','Definição do capital social e da participação de cada sócio','Endereço da sede (ou autorização de uso do endereço fiscal Lucralize)','E-mail e telefone de contato de cada sócio'],
-    etapas:['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
+    etapas:['Recebimento de informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
   },
   {
     id:'transformacao-mei-me', categoria:'Abertura e Transformação de CNPJ',
@@ -677,7 +677,7 @@ var SERVICES = [
     valorTextoCustomHtml:'<p style="margin:0;">A Lucralize oferece <strong>gratuitamente</strong> o serviço de transformação da empresa para novos clientes.</p>'+
       '<p style="margin:.7rem 0 0;">Os custos das <strong>taxas necessárias para a transformação são de responsabilidade do cliente</strong>, incluindo: <strong>Junta Comercial, certificado digital e Taxa de Localização e Funcionamento</strong>. Os valores das taxas da Junta Comercial e da Prefeitura variam de acordo com o <strong>Estado e Município</strong> onde a empresa será registrada.</p>',
     documentos:['RG e CPF (ou CNH) de todos os sócios','Guia de IPTU do imóvel do CNPJ (apenas para quem optar por não utilizar o endereço fiscal Lucralize)','Definição do objeto social (atividades a exercer)','Definição do capital social e da participação de cada sócio','Endereço da sede (ou autorização de uso do endereço fiscal Lucralize)','E-mail e telefone de contato de cada sócio'],
-    etapas:['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
+    etapas:['Recebimento de informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial','Inscrição do CNPJ e Regime Tributário','Certificado Digital','Licenciamento e Alvará']
   },
   {
     id:'alteracao-simples', categoria:'Alterações e Baixa da Empresa',
@@ -863,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20260929-b12';
+var BUILD_ID = '20261001-b13';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1470,7 +1470,7 @@ function etapasDoProcesso(p){
        cliente. A abertura conclui em "Inscrição do CNPJ e Regime Tributário";
        a transformação (que não tem essa etapa) conclui em "Em análise pela
        Junta Comercial". */
-    var lista2 = ['Aguardando complemento das informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial'];
+    var lista2 = ['Recebimento de informações','Viabilidade do nome e do endereço','Documento Básico de Entrada (DBE)','Módulo Integrador','Registro Digital na Junta Comercial'];
     lista2 = inserirAnaliseJunta(lista2);
     if(p.servicoId==='abertura-cnpj') lista2.push('Inscrição do CNPJ e Regime Tributário');
     return lista2;
@@ -2884,13 +2884,20 @@ async function enviarSolicitacaoAbertura(variant){
     dados.cnpjAtual = document.getElementById('fab-transf-cnpj').value.trim();
   }
 
+  /* Abertura de CNPJ e Transformação de MEI para ME não têm etapa de
+     pagamento (são gratuitas) — o processo já nasce "em_andamento", direto
+     na primeira etapa real ("Recebimento de informações"), em vez de passar
+     por "aguardando_pagamento" como os demais serviços. */
   var ok = await finalizarNovoProcesso({
-    id:id, servicoId:servicoId, status:'aguardando_pagamento', etapaAtual:-1,
+    id:id, servicoId:servicoId, status:'em_andamento', etapaAtual:0,
     criadoEm: todayISO(), protocolo:'',
-    historico:[{data:todayISO(), hora:nowHM(), texto:(isTransf?'Formulário de transformação de MEI para ME':'Formulário de abertura de CNPJ')+' preenchido e enviado pelo cliente.', autor:'cliente'}],
+    historico:[
+      {data:todayISO(), hora:nowHM(), texto:(isTransf?'Formulário de transformação de MEI para ME':'Formulário de abertura de CNPJ')+' preenchido e enviado pelo cliente.', autor:'cliente'},
+      {data:todayISO(), hora:nowHM(), texto:'Processo iniciado — Recebimento de informações.', autor:'lucralize'}
+    ],
     documentosAndamento:[], documentosFinais:[],
     formularioAbertura: dados
-  });
+  }, 'Formulário enviado com sucesso! Nossa equipe já vai começar a análise.');
   if(!ok && submitBtn) submitBtn.disabled = false;
 }
 
@@ -4178,7 +4185,14 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
   var company = getCompany(p.empresaId);
   var steps = stepStates(p, s);
 
-  var fullSteps = [{label:'Pagamento confirmado', state: p.status==='aguardando_pagamento' ? 'atual' : 'concluida'}].concat(steps);
+  /* Abertura de CNPJ e Transformação de MEI para ME são gratuitas (ver
+     valorTextoCustomHtml no catálogo) — não existe etapa de pagamento pra
+     elas, então a linha do tempo começa direto em "Recebimento de
+     informações", sem a etapa "Pagamento confirmado" na frente. */
+  var temEtapaPagamento = p.servicoId!=='abertura-cnpj' && p.servicoId!=='transformacao-mei-me';
+  var fullSteps = temEtapaPagamento
+    ? [{label:'Pagamento confirmado', state: p.status==='aguardando_pagamento' ? 'atual' : 'concluida'}].concat(steps)
+    : steps;
 
   var stepperHtml = fullSteps.map(function(st, i){
     var node = st.state==='concluida' ? '✓' : (i+1);
@@ -4585,7 +4599,11 @@ function confirmarAvancoComplemento(id){
   executarAvancoEtapa(id, texto);
 }
 function reiniciarProcessoOpcoesHtml(p, s){
-  var opcoes = [{idx:-1, label:'Pagamento confirmado'}].concat(etapasDoProcesso(p).map(function(label, i){ return {idx:i, label:label}; }));
+  /* Abertura de CNPJ e Transformação de MEI para ME não têm etapa de
+     pagamento — não existe "voltar para aguardando pagamento" pra elas. */
+  var temEtapaPagamento = p.servicoId!=='abertura-cnpj' && p.servicoId!=='transformacao-mei-me';
+  var opcoes = (temEtapaPagamento ? [{idx:-1, label:'Pagamento confirmado'}] : [])
+    .concat(etapasDoProcesso(p).map(function(label, i){ return {idx:i, label:label}; }));
   return opcoes.map(function(o){
     var atual = (p.status==='aguardando_pagamento' ? -1 : p.etapaAtual) === o.idx;
     return '<label class="radio-option"><input type="radio" name="reiniciar-etapa" value="'+o.idx+'"'+(atual?' checked':'')+'> '+esc(o.label)+(atual?' <span style="color:var(--ink-faint); font-weight:500;">(etapa atual)</span>':'')+'</label>';
@@ -4949,7 +4967,10 @@ function renderAdminExcluidos(){
 function manualEtapaOptionsHtml(servicoId){
   var s = SERVICE_MAP[servicoId];
   if(!s) return '';
-  var opts = ['<option value="aguardando_pagamento">Aguardando pagamento</option>'];
+  /* Abertura de CNPJ e Transformação de MEI para ME não têm etapa de
+     pagamento — não faz sentido oferecer "Aguardando pagamento" aqui. */
+  var temEtapaPagamento = servicoId!=='abertura-cnpj' && servicoId!=='transformacao-mei-me';
+  var opts = temEtapaPagamento ? ['<option value="aguardando_pagamento">Aguardando pagamento</option>'] : [];
   etapasBaseParaServico(servicoId).forEach(function(label, i){
     opts.push('<option value="'+i+'">'+esc(label)+'</option>');
   });
