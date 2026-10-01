@@ -863,7 +863,7 @@ var SEED_VERSION = 8; /* aumentar sempre que a estrutura inicial dos dados de ex
    sozinha o HTML/JS de novo — isso vinha causando a impressão de que correções
    já publicadas "não tinham funcionado", quando na verdade a aba só estava
    rodando a versão antiga. */
-var BUILD_ID = '20261001-b14';
+var BUILD_ID = '20261001-b15';
 var SUPA_URL = 'https://reiexenjvaxpudoisrov.supabase.co';
 var SUPA_KEY = 'sb_publishable_IE0kdA85fHWpdPknduWYpA_whKCt0BS';
 var supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -4318,10 +4318,15 @@ function renderProcessoDetalhe(id, adminMode, publicMode){
 
   var adminActions = '';
   if(adminMode){
-    var bloqueiaConfirmarPagamento = ehFreelancer && p.status==='aguardando_pagamento';
+    /* Abertura de CNPJ e Transformação de MEI para ME não têm etapa de
+       pagamento (são gratuitas). Um processo desses ainda pode aparecer com
+       status "aguardando_pagamento" só por ser um registro antigo, de antes
+       desta correção — nesse caso o botão não deve falar de pagamento. */
+    var temEtapaPagamentoAcoes = p.servicoId!=='abertura-cnpj' && p.servicoId!=='transformacao-mei-me';
+    var bloqueiaConfirmarPagamento = ehFreelancer && p.status==='aguardando_pagamento' && temEtapaPagamentoAcoes;
     var etapasP = etapasDoProcesso(p);
     var naUltimaEtapaAindaEmAndamento = p.status==='em_andamento' && p.etapaAtual===etapasP.length-1;
-    var nextLabel = p.status==='cancelado' ? null : (p.status==='aguardando_pagamento' ? 'Confirmar pagamento e iniciar processo'
+    var nextLabel = p.status==='cancelado' ? null : (p.status==='aguardando_pagamento' ? (temEtapaPagamentoAcoes ? 'Confirmar pagamento e iniciar processo' : 'Iniciar processo')
       : (naUltimaEtapaAindaEmAndamento ? 'Concluir: '+esc(etapasP[p.etapaAtual])
       : (p.etapaAtual < etapasP.length-1 ? 'Avançar para: '+esc(etapasP[p.etapaAtual+1]) : null)));
     adminActions = '<div class="card" style="padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.7rem;">'+
@@ -4597,8 +4602,13 @@ async function executarAvancoEtapa(id, pendenciasTexto){
   var snapshot = JSON.parse(JSON.stringify(p));
   var sufixoPendencias = pendenciasTexto ? ' Informações pendentes: '+pendenciasTexto : '';
   if(p.status==='aguardando_pagamento'){
+    /* Abertura de CNPJ e Transformação de MEI para ME não têm pagamento —
+       esse "aguardando_pagamento" só existe aqui por ser um registro antigo,
+       de antes da correção. Nesse caso não registramos no histórico que um
+       pagamento foi confirmado, porque nunca existiu um. */
+    var temEtapaPagamentoHist = p.servicoId!=='abertura-cnpj' && p.servicoId!=='transformacao-mei-me';
     p.status='em_andamento'; p.etapaAtual=0;
-    p.historico.push({data:todayISO(), hora:nowHM(), texto:'Pagamento confirmado. Processo iniciado — '+etapas[0]+'.'+sufixoPendencias, autor:nomeAutorAtual()});
+    p.historico.push({data:todayISO(), hora:nowHM(), texto:(temEtapaPagamentoHist ? 'Pagamento confirmado. Processo iniciado — ' : 'Processo iniciado — ')+etapas[0]+'.'+sufixoPendencias, autor:nomeAutorAtual()});
   } else if(p.etapaAtual < etapas.length-1){
     /* Ainda existe mais de uma etapa nomeada pela frente: só avança o marcador,
        sem concluir nada — mesmo que a PRÓXIMA etapa seja a última da linha do
